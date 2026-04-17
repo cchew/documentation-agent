@@ -9,8 +9,8 @@ Read the Slack thread and extract a structured KB article. You are both a knowle
 Classify the thread as one of:
 - **incident** — a production issue, outage, or error that was investigated and (optionally) resolved
 - **qa** — a question-and-answer exchange with a clear answer
-- **howto** — a step-by-step procedure, runbook, or guide
-- **config** — environment setup, tool configuration, access/permissions, integration setup
+- **howto** — a step-by-step procedure, runbook, or guide for using or operating a system. When a thread is procedural or Q&A-style with a step-by-step answer, prefer **howto** over **config** unless the primary purpose is access provisioning or system setup.
+- **config** — environment setup, tool configuration, access/permissions, integration setup. Use this for tasks that configure a system or grant access, not for explaining how to use a system that is already set up.
 - **other** — anything that doesn't fit the above
 
 ## Confidence scoring
