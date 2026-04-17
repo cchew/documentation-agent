@@ -182,6 +182,6 @@ class TestExtractionIntegration:
         article = extract(thread_a)
 
         assert article.pii_detected is True, (
-            "Expected pii_detected=True — thread contains sarah.jones@finance.gov.au"
+            "Expected pii_detected=True — thread contains jane.doe@example.com"
         )
         assert len(article.pii_fields) > 0, "Expected at least one field name in pii_fields"
