@@ -1,0 +1,37 @@
+{
+  "_thread": "Thread C — AWS RDS credential rotation runbook",
+  "_notes": "Best thread for how-to extraction. Schema fits very well. The procedural nature maps directly to steps_taken.",
+
+  "title": "Rotating AWS RDS Credentials Without Downtime (Secrets Manager)",
+  "summary": "Quarterly process for rotating RDS credentials using AWS Secrets Manager. The rotation Lambda type must match your rotation strategy — single-user vs multi-user (our environment uses SecretsManagerRDSMySQLRotationMultiUser). After rotation, a rolling restart of the API fleet is required for apps to pick up the new secret. Total time is ~30 minutes including buffer. The window of potential DB auth errors is ~5–8 minutes between rotation trigger and rolling restart completion.",
+  "incident_type": "howto",
+  "systems_affected": ["aws-secrets-manager", "rds-api-db", "api-fleet", "cloudwatch"],
+  "steps_taken": [
+    "Go to AWS Secrets Manager → select secret /prod/rds/api-db → choose 'Rotate secret immediately'",
+    "Confirm rotation Lambda is configured — use SecretsManagerRDSMySQLRotationMultiUser for multi-user rotation",
+    "Trigger rotation and watch CloudWatch logs for the Lambda execution",
+    "Perform rolling restart of the API fleet to pick up the new secret",
+    "Verify app logs for DB auth errors after restart — allow 5–8 min window"
+  ],
+  "resolution": "Credentials rotated successfully. No DB auth errors post-restart. Apps reconnected cleanly.",
+  "root_cause": "N/A — scheduled compliance process, not triggered by an incident.",
+  "tags": ["aws", "rds", "secrets-manager", "credential-rotation", "runbook", "compliance", "security"],
+  "related_topics": ["AWS IAM", "database security", "compliance rotation schedule", "Secrets Manager Lambda"],
+  "confidence_score": 0.95,
+  "pii_detected": false,
+  "pii_fields": [],
+
+  "_gap_notes": {
+    "missing": [
+      "frequency/schedule field — 'quarterly' is mentioned but has no schema home; critical for runbooks",
+      "prerequisites field — needs Secrets Manager access, rotation Lambda configured, rolling restart capability",
+      "estimated_duration — '30 minutes' is mentioned and is genuinely useful metadata",
+      "environment field — 'prod' is stated; this runbook may differ for staging"
+    ],
+    "weak": [
+      "root_cause: forced to 'N/A' for how-to threads. Indicates the field should be optional or typed differently",
+      "resolution: repurposed as 'outcome of following the runbook' — slightly awkward but acceptable",
+      "incident_type 'howto': the enum label is fine but a 'runbook' sub-type would be more precise"
+    ]
+  }
+}

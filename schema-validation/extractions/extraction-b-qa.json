@@ -1,0 +1,48 @@
+{
+  "_thread": "Thread B — AWS AppConfig feature flag configuration",
+  "_notes": "Clean Q&A thread. Schema fits well with config type. incident-centric fields handled correctly with null/empty.",
+
+  "title": "Configuring Feature Flags for Pre-Prod Environment in AWS AppConfig",
+  "summary": "The staging environment was renamed 'pre-prod' in AWS AppConfig ~3 months ago — this causes confusion when engineers look for a 'staging' environment. To enable a feature flag: open the Feature Flag config profile for the target environment, set the flag to enabled, save a new version, and start a deployment using the AllAtOnce strategy for internal testing. Rollback is available via the 'Stop deployment and roll back' button during an active deployment, or by setting the flag to disabled and redeploying. Deploy access requires the `appconfig:StartDeployment` IAM permission scoped to the target environment, granted via the platform-eng-deployers group.",
+  "incident_type": "config",
+  "severity": null,
+  "systems_affected": ["aws-appconfig", "smart-search-v2", "pre-prod-environment"],
+  "prerequisites": [
+    "`appconfig:StartDeployment` IAM permission on the target environment (granted via platform-eng-deployers group)"
+  ],
+  "steps_taken": [
+    "Locate the pre-prod environment in AWS AppConfig (previously named 'staging') under the app's Environments tab",
+    "Open the Feature Flag configuration profile for pre-prod",
+    "Set `smart-search-v2` flag to enabled and save a new version",
+    "Start a new deployment using the AllAtOnce deployment strategy",
+    "Verify environment selector is set to pre-prod before deploying",
+    "Confirm flag is live and test"
+  ],
+  "resolution": "Flag smart-search-v2 enabled in pre-prod via AWS AppConfig deployment. Confirmed working by requester.",
+  "root_cause": null,
+  "action_items": [
+    "Add feature flag configuration process to platform docs",
+    "Consider adding a guard rail or confirmation prompt on environment selection before deployment"
+  ],
+  "tags": ["aws-appconfig", "feature-flags", "pre-prod", "staging", "configuration", "iam", "permissions"],
+  "related_topics": ["environment configuration", "release management", "AWS AppConfig", "IAM permissions"],
+  "confidence_score": 0.88,
+  "extraction_viable": true,
+  "low_confidence_reason": null,
+  "pii_detected": false,
+  "pii_fields": [],
+
+  "_gap_notes": {
+    "resolved_from_v1": [
+      "incident_type is now 'config' — accurate for this thread type, no longer forced into 'qa'",
+      "prerequisites is now a distinct field: IAM permission requirement is clearly separated from steps",
+      "root_cause is null — correct for config type, no longer repurposed as 'why the confusion existed'",
+      "action_items captures the 'let's write a doc' follow-up intent that had no home in v1",
+      "severity is null — correct, this is not an incident"
+    ],
+    "remaining_weak": [
+      "steps_taken works well here as the thread is instructional; for pure Q&A with a one-line answer it would be a single-element array — acceptable",
+      "systems_affected: 'smart-search-v2' is a flag name, not a system — acceptable at demo scope"
+    ]
+  }
+}

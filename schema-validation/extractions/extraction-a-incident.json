@@ -1,0 +1,46 @@
+{
+  "_thread": "Thread A — DB Connection Pool Exhaustion",
+  "_notes": "Clean incident thread. Schema fills well. See gap notes below.",
+
+  "title": "DB Connection Pool Exhaustion — Summary Enrichment Service Deployment",
+  "summary": "A deployment of the summary-enrichment service at 08:45 caused a connection leak that exhausted the Oracle Universal Connection Pool (UCP, max 20 connections), resulting in a ~41-minute incident with 12% error rate on /api/summary. The service was rolled back to v2.3.1. Root cause was a missing connection.close() call inside an enrichment loop in SummaryEnrichmentService.java line 87. PR #442 contains the permanent fix; UCP max pool size increased to 40 as a short-term buffer.",
+  "incident_type": "incident",
+  "severity": "p2",
+  "systems_affected": ["summary-enrichment-service", "api-summary", "oracle-ucp", "prod-database"],
+  "prerequisites": [],
+  "steps_taken": [
+    "Identified Oracle UCP pool exhaustion — 20 connections borrowed, 150 requests queued",
+    "Correlated spike with 08:45 deployment of summary-enrichment service",
+    "Rolled back summary-enrichment service to v2.3.1",
+    "Confirmed UCP stats and error rate recovering post-rollback",
+    "Identified root cause: missing connection.close() in SummaryEnrichmentService.java line 87",
+    "Raised PR #442 with permanent fix",
+    "Bumped Oracle UCP max pool size from 20 to 40 as short-term buffer"
+  ],
+  "resolution": "Rolled back summary-enrichment service to v2.3.1. Permanent fix in PR #442. Oracle UCP max pool size increased to 40 pending PR merge.",
+  "root_cause": "Missing connection.close() in SummaryEnrichmentService.java line 87 — the service opened a new Oracle DB connection per request inside a loop without returning it to the pool.",
+  "action_items": [
+    "Merge PR #442 (permanent connection leak fix)",
+    "Revert Oracle UCP max pool size from 40 back to 20 after PR #442 is merged and verified",
+    "Tag @maya.chen in post-mortem ticket"
+  ],
+  "tags": ["database", "connection-pool", "deployment", "oracle-ucp", "incident", "rollback"],
+  "related_topics": ["post-mortem", "summary-enrichment-service", "deployment checklist"],
+  "confidence_score": 0.92,
+  "extraction_viable": true,
+  "low_confidence_reason": null,
+  "pii_detected": false,
+  "pii_fields": [],
+
+  "_gap_notes": {
+    "resolved_from_v1": [
+      "severity now populated (p2 — 12% error rate, 41 min, no data loss)",
+      "action_items now a distinct field from resolution",
+      "root_cause remains string (correctly populated for incident type)"
+    ],
+    "remaining_weak": [
+      "systems_affected: free-text array makes it hard to link to a service catalogue",
+      "related_topics: 'post-mortem' is a process, not a KB topic — acceptable for demo"
+    ]
+  }
+}

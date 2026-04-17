@@ -1,0 +1,29 @@
+{
+  "_thread": "Thread D — Sparse vague error thread",
+  "_notes": "Only 4 messages, no resolution, no root cause identified. Tests the floor of the schema.",
+
+  "title": "Reporting Service — Intermittent HTTP 500 Upstream Timeout (Unresolved)",
+  "summary": "Brief thread reporting an intermittent 'Error 500: upstream timeout' on the reporting service. Two engineers observed it, but it appeared to resolve on its own. No root cause identified. Attributed to known flakiness on this service with no further investigation.",
+  "incident_type": "incident",
+  "systems_affected": ["reporting-service"],
+  "steps_taken": [],
+  "resolution": "Unresolved — error appeared to self-resolve. No investigation performed.",
+  "root_cause": "Unknown. Possibly known intermittent instability on the reporting service.",
+  "tags": ["reporting-service", "http-500", "upstream-timeout", "flakiness", "unresolved"],
+  "related_topics": ["reporting-service stability"],
+  "confidence_score": 0.31,
+  "pii_detected": false,
+  "pii_fields": [],
+
+  "_gap_notes": {
+    "missing": [
+      "extraction_viable boolean flag — a 0.31 confidence score alone doesn't tell the Slack bot whether to bother creating the page at all. A separate 'should_create' or 'extraction_viable' field would let the backend make a clean gate decision",
+      "low_confidence_reason — at 0.31 the consumer needs to know WHY: sparse thread? no resolution? ambiguous type? A reason code helps the Block Kit message say something useful"
+    ],
+    "weak": [
+      "steps_taken empty array: technically correct but ugly in a Confluence page — needs a rendering fallback",
+      "confidence_score: 0.31 is computed how exactly? This field needs a documented scoring rubric before the extraction prompt can produce it reliably. The current schema has no definition",
+      "incident_type: defaulted to 'incident' because there's a vague error — 'noise' or 'unresolved' would be more honest type values"
+    ]
+  }
+}

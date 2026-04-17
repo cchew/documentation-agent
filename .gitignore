@@ -1,0 +1,9 @@
+*.pyc
+*.pyo
+.demo_state.json
+.env
+.env.local
+.pytest_cache/
+.venv/
+__pycache__/
+venv/
