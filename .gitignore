@@ -3,6 +3,7 @@
 .demo_state.json
 .env
 .env.local
+.claude/
 .pytest_cache/
 .venv/
 __pycache__/

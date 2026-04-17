@@ -124,9 +124,9 @@ Creates one article in Confluence before the live demo so the space doesn't look
 python demo/seed-confluence.py
 ```
 
-### Pre-run threads the day before
+### Before the demo
 
-Trigger the ⚡ shortcut on Threads A, B, and C the day before so the KB space already shows 3 articles. During the live demo, run Thread A again from a fresh thread so the audience sees the full flow in real time.
+Trigger the ⚡ shortcut on Threads C the day before so the KB space already shows 2 articles (including the one seeded by the script above). During the live demo, trigger the shortcut on Threads A and B so the audience sees the full flow in real time.
 
 ### Demo order
 
@@ -198,4 +198,15 @@ pytest -m integration
     ├── slides.html
     ├── screenshots/
     └── diagrams/
+```
+
+---
+
+## Presentation
+
+To convert MARP ([slides-minimal.md](presentation/slides-minimal.md)) to HTML:
+
+```
+cd presentation
+marp slides-minimal.md -o slides.html
 ```
