@@ -2,6 +2,8 @@
 
 Converts Slack incident threads and Q&A chains into structured Confluence KB articles via a one-click Slack shortcut.
 
+![Generated KB article](presentation/screenshots/kb-1.png)
+
 **Flow:** Slack shortcut → FastAPI → Claude API (structured extraction) → Confluence page + Slack Block Kit response
 
 ![Component flow](presentation/diagrams/component-flow.svg)
