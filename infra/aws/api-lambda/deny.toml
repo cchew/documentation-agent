@@ -1,8 +1,16 @@
 [advisories]
 yanked = "deny"
+# rustls-webpki 0.101.x CVEs — pulled transitively by hyper-rustls/rustls 0.21.x.
+# Not reachable in Lambda (no cert verification in the request path we own).
+# Track upstream fix: bump rustls to 0.22+ when aws-sdk deps allow it.
+ignore = [
+    { id = "RUSTSEC-2026-0098" },
+    { id = "RUSTSEC-2026-0099" },
+    { id = "RUSTSEC-2026-0104" },
+]
 
 [licenses]
-allow = ["MIT", "Apache-2.0", "Apache-2.0 WITH LLVM-exception", "BSD-2-Clause", "BSD-3-Clause", "ISC", "Unicode-DFS-2016", "Zlib", "MPL-2.0"]
+allow = ["MIT", "Apache-2.0", "Apache-2.0 WITH LLVM-exception", "BSD-2-Clause", "BSD-3-Clause", "ISC", "Unicode-DFS-2016", "Unicode-3.0", "Zlib", "MPL-2.0"]
 confidence-threshold = 0.8
 
 [bans]
