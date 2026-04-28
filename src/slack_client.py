@@ -18,7 +18,13 @@ def verify_signature(body: bytes, timestamp: str, signature: str) -> bool:
     """
     signing_secret = os.environ["SLACK_SIGNING_SECRET"]
 
-    if abs(time.time() - float(timestamp)) > 300:
+    if not timestamp or not signature:
+        return False
+    try:
+        ts = float(timestamp)
+    except ValueError:
+        return False
+    if abs(time.time() - ts) > 300:
         return False
 
     base = f"v0:{timestamp}:{body.decode('utf-8')}"
