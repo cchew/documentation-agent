@@ -9,6 +9,7 @@ lambda_runtime = "0.13"
 tokio = { version = "1", features = ["macros"] }
 aws-config = { version = "1", features = ["behavior-version-latest"] }
 aws-sdk-sqs = "1"
+aws-sdk-ssm = "1"
 hmac = "0.12"
 sha2 = "0.10"
 subtle = "2"

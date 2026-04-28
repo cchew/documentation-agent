@@ -17,6 +17,7 @@ version = "0.1.0"
 dependencies = [
  "aws-config",
  "aws-sdk-sqs",
+ "aws-sdk-ssm",
  "hex",
  "hmac 0.12.1",
  "lambda_http",
@@ -159,6 +160,30 @@ name = "aws-sdk-sqs"
 version = "1.98.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5d5ee88532abaf0f125d460659cb80fe1506322f69131ed789c32c8d84c520ab"
+dependencies = [
+ "aws-credential-types",
+ "aws-runtime",
+ "aws-smithy-async",
+ "aws-smithy-http",
+ "aws-smithy-json",
+ "aws-smithy-observability",
+ "aws-smithy-runtime",
+ "aws-smithy-runtime-api",
+ "aws-smithy-types",
+ "aws-types",
+ "bytes",
+ "fastrand",
+ "http 0.2.12",
+ "http 1.4.0",
+ "regex-lite",
+ "tracing",
+]
+
+[[package]]
+name = "aws-sdk-ssm"
+version = "1.109.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "69f4bdbeea2c7d18632093cd158644902f1e91ae025a3f68afaa449f620ae658"
 dependencies = [
  "aws-credential-types",
  "aws-runtime",
