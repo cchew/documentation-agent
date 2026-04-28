@@ -4,6 +4,9 @@ Posts the Slack 'processing' message, then dispatches to the cloud-neutral pipel
 import json
 import logging
 
+from src.ssm_config import load_ssm_params_into_env
+load_ssm_params_into_env()
+
 from src.pipeline import run_pipeline
 from src.slack_client import post_processing
 
