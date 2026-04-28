@@ -1,37 +1,70 @@
 # Demo Runbook
 
-## Prerequisites
+## Before the demo
 
-1. `.env` populated (copy from `.env.example`, fill real values)
-2. ngrok running: `ngrok http 8000`
-3. Slack app interactivity URL set to `https://<ngrok-host>/slack/actions`
-
-## Run the server
+### 1. Activate venv and start FastAPI
 
 ```bash
+cd repo
 source .venv/bin/activate
 uvicorn src.adapters.fastapi_app:app --reload --port 8000
 ```
 
-## Demo flow
-
-1. In Slack, open a thread in a channel the bot is in
-2. Click the ⚡ shortcut on the message
-3. Select "Create KB Article"
-4. Watch for the processing message (⏳), then the KB article card
-5. Click "View in Confluence →" to verify the page
-
-## Reset between runs
+### 2. Start ngrok (new terminal)
 
 ```bash
-python demo/reset-threads.py       # removes seeded Slack threads
-python demo/reset-confluence.py    # deletes all pages from the Confluence demo space
-python demo/reset-storage.py       # clears storage backend (no-op for memory)
+ngrok http --domain=flaxseed-vascular-cosmetics.ngrok-free.dev 8000
 ```
 
-## Seed test data
+Slack webhook URL (already configured): `https://flaxseed-vascular-cosmetics.ngrok-free.dev/slack/actions`
+
+### 3. Seed Confluence with pre-existing article
 
 ```bash
-python demo/post-threads.py        # posts sample threads to Slack
-python demo/seed-confluence.py     # seeds Confluence with sample pages
+python demo/seed-confluence.py
 ```
+
+### 4. Post demo Slack threads
+
+```bash
+python demo/post-threads.py
+```
+
+Posts Thread A → `#incidents`, Threads B & C → `#platform-eng`.
+
+### 5. Run threads A, B, C through the shortcut (day before)
+
+Trigger the ⚡ shortcut on all 3 threads so the Confluence space shows 3 existing articles before the live demo.
+
+---
+
+## During the demo
+
+Use Thread A (incident) live in front of the audience. Threads B and C are backups.
+
+---
+
+## After the demo
+
+### Reset Slack threads
+
+```bash
+python demo/reset-threads.py
+```
+
+### Reset Confluence (deletes all pages in KD space)
+
+```bash
+python demo/reset-confluence.py
+```
+
+### Reset storage backend
+
+```bash
+python demo/reset-storage.py    # clears storage backend (no-op for memory)
+```
+
+### Stop services
+
+- `Ctrl+C` in the FastAPI terminal
+- `Ctrl+C` in the ngrok terminal
