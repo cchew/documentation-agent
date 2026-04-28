@@ -4,7 +4,9 @@ Converts Slack incident threads and Q&A chains into structured Confluence KB art
 
 ![Generated KB article](presentation/screenshots/kb-1.png)
 
-**Flow:** Slack shortcut → FastAPI → Claude API (structured extraction) → Confluence page + Slack Block Kit response
+**Localhost flow:** Slack shortcut → ngrok → FastAPI → Claude API (structured extraction) → Confluence page + Slack Block Kit response
+
+**AWS flow:** Slack shortcut → API Gateway → Rust Lambda (HMAC + SQS) → Python worker Lambda → Claude API → DynamoDB + Confluence + Slack response
 
 ![Component flow](presentation/diagrams/component-flow.svg)
 
@@ -17,6 +19,7 @@ Converts Slack incident threads and Q&A chains into structured Confluence KB art
 - Slack workspace with admin access
 - Confluence free tier (personal workspace)
 - Anthropic API key
+- (AWS deployment only) AWS account, Rust toolchain, cargo-lambda, AWS CDK CLI
 
 ---
 
@@ -27,7 +30,7 @@ Converts Slack incident threads and Q&A chains into structured Confluence KB art
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install -e ".[test]"
 ```
 
 ### 2. Environment variables
@@ -93,7 +96,7 @@ Install the app to your workspace and invite the bot to your demo channels.
 
 ```bash
 source .venv/bin/activate
-uvicorn main:app --reload --port 8000
+uvicorn src.adapters.fastapi_app:app --reload --port 8000
 ```
 
 ### Start ngrok (separate terminal)
@@ -147,6 +150,9 @@ Open `presentation/slides.html` in a browser for the presentation deck.
 After the demo, restore a clean state:
 
 ```bash
+# Reset in-memory article store (localhost only — clears stored articles)
+python demo/reset-storage.py
+
 # Delete all posted Slack threads
 python demo/reset-threads.py
 
@@ -175,32 +181,56 @@ pytest -m integration
 
 ```
 .
-├── main.py                  # FastAPI app — Slack webhook + extract endpoints
-├── block_kit.py             # Slack Block Kit response builder
-├── confluence_client.py     # Confluence REST API client
-├── slack_client.py          # Slack signature verification + thread fetching
-├── storage.py               # SQLite article store
-├── extraction/
-│   ├── extractor.py         # Claude API extraction pipeline
-│   ├── models.py            # Pydantic KBArticle schema
-│   └── prompts.py           # System + user prompts
+├── src/
+│   ├── adapters/
+│   │   ├── fastapi_app.py       # FastAPI app — Slack webhook + extract endpoints
+│   │   └── aws_lambda_worker.py # Lambda handler for SQS-triggered processing
+│   ├── storage/
+│   │   ├── base.py              # ArticleStore ABC
+│   │   ├── memory.py            # In-memory store (localhost)
+│   │   └── aws_dynamodb.py      # DynamoDB store (AWS)
+│   ├── extraction/
+│   │   ├── extractor.py         # Claude API extraction pipeline
+│   │   ├── models.py            # Pydantic KBArticle schema
+│   │   └── prompts.py           # System + user prompts
+│   ├── pipeline.py              # Cloud-neutral orchestration
+│   ├── block_kit.py             # Slack Block Kit response builder
+│   ├── confluence_client.py     # Confluence REST API client
+│   ├── slack_client.py          # Slack signature verification + thread fetching
+│   └── ssm_config.py            # SSM Parameter Store → env var resolution
+├── infra/aws/
+│   ├── api-lambda/              # Rust Lambda: HMAC verify + SQS enqueue
+│   └── cdk/                     # CDK Python stack (SQS, DDB, Lambda, APIGW, alarms)
 ├── demo/
-│   ├── threads/             # Sample Slack thread transcripts
-│   ├── post-threads.py      # Post threads to Slack
-│   ├── reset-threads.py     # Delete posted threads
-│   ├── seed-confluence.py   # Pre-seed Confluence with one article
-│   └── reset-confluence.py  # Delete all Confluence demo pages
+│   ├── threads/                 # Sample Slack thread transcripts
+│   ├── post-threads.py          # Post threads to Slack
+│   ├── reset-threads.py         # Delete posted threads
+│   ├── reset-storage.py         # Clear in-memory article store
+│   ├── seed-confluence.py       # Pre-seed Confluence with one article
+│   └── reset-confluence.py      # Delete all Confluence demo pages
 ├── schema-validation/
-│   ├── threads/             # Raw thread inputs used for extraction testing
-│   └── extractions/         # Expected JSON output for each thread
+│   ├── threads/                 # Raw thread inputs used for extraction testing
+│   └── extractions/             # Expected JSON output for each thread
 ├── tests/
 │   ├── conftest.py
-│   └── test_extractor.py
+│   ├── test_extractor.py
+│   ├── test_pipeline.py
+│   ├── test_storage_contract.py
+│   ├── test_aws_lambda_worker.py
+│   ├── test_ssm_config.py
+│   └── test_cdk_stack.py
+├── DEPLOY.md                    # Full AWS deployment walkthrough
 └── presentation/
     ├── slides.html
     ├── screenshots/
     └── diagrams/
 ```
+
+---
+
+## AWS deployment
+
+See [DEPLOY.md](DEPLOY.md) for the full walkthrough including CDK bootstrap, SSM secret setup, Rust Lambda build, and deploy steps.
 
 ---
 

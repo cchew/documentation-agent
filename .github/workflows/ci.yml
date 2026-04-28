@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  python:
+    name: Python tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install deps
+        run: pip install -e ".[test]" aws-cdk-lib constructs jsii
+
+      - name: pytest
+        run: pytest --tb=short
+
+  rust:
+    name: Rust tests + deny
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra/aws/api-lambda
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-unknown-linux-musl
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: infra/aws/api-lambda
+
+      - name: cargo test
+        run: cargo test
+
+      - name: cargo deny
+        uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          manifest-path: infra/aws/api-lambda/Cargo.toml
+
+  cdk-synth:
+    name: CDK synth
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra/aws/cdk
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install CDK CLI
+        run: npm install -g aws-cdk
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: infra/aws/cdk/requirements.txt
+
+      - name: Install CDK deps
+        run: pip install -r requirements.txt
+
+      - name: CDK synth
+        env:
+          CDK_DEFAULT_ACCOUNT: "123456789012"
+        run: cdk synth
