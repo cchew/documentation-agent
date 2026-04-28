@@ -18,8 +18,8 @@ from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
-from src import storage_old as storage
 from src.block_kit import build_error_response, build_kb_response, build_not_viable_response
+from src.storage import get_store
 from src.confluence_client import create_page
 from src.extraction.extractor import extract
 from src.slack_client import fetch_thread, post_processing, post_response, update_response, verify_signature
@@ -59,11 +59,11 @@ def _run_pipeline(channel_id: str, thread_ts: str, processing_ts: str) -> None:
         article = extract(thread_text)
 
         article_id = f"{channel_id}_{thread_ts}"
-        storage.save(article_id, article)
+        get_store().save(article_id, article)
 
         if article.extraction_viable:
             confluence_url, page_id = create_page(article)
-            storage.save_page_id(article_id, page_id)
+            get_store().save_page_id(article_id, page_id)
             payload = build_kb_response(article, confluence_url)
         else:
             payload = build_not_viable_response(article)
@@ -135,7 +135,7 @@ async def extract_endpoint(body: ExtractRequest) -> dict:
 @app.get("/articles", dependencies=[Depends(_require_api_key)])
 async def list_articles() -> list[dict]:
     """List all articles saved in the in-memory store."""
-    return storage.list_all()
+    return get_store().list_all()
 
 
 @app.get("/health")
