@@ -6,7 +6,7 @@ import os
 
 import httpx
 
-from extraction.models import KBArticle
+from src.extraction.models import KBArticle
 
 
 def _auth_header() -> str:

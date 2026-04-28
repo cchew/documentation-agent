@@ -1,7 +1,7 @@
 """Builds the Slack Block Kit response message for a KB article creation result."""
 import time
 
-from extraction.models import KBArticle
+from src.extraction.models import KBArticle
 
 _SEVERITY_EMOJI = {"p1": "🔴", "p2": "🟡", "p3": "🔵", "p4": "🟢", "unknown": "⚪"}
 

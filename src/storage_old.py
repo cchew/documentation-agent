@@ -2,7 +2,7 @@
 In-memory article store keyed by article_id (channel_ts).
 Acceptable for demo — no persistence across restarts.
 """
-from extraction.models import KBArticle
+from src.extraction.models import KBArticle
 
 _store: dict[str, KBArticle] = {}
 _page_ids: dict[str, str] = {}  # article_id → confluence page_id

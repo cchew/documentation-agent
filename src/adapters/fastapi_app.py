@@ -18,11 +18,11 @@ from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
-import storage
-from block_kit import build_error_response, build_kb_response, build_not_viable_response
-from confluence_client import create_page
-from extraction.extractor import extract
-from slack_client import fetch_thread, post_processing, post_response, update_response, verify_signature
+from src import storage_old as storage
+from src.block_kit import build_error_response, build_kb_response, build_not_viable_response
+from src.confluence_client import create_page
+from src.extraction.extractor import extract
+from src.slack_client import fetch_thread, post_processing, post_response, update_response, verify_signature
 
 load_dotenv()
 

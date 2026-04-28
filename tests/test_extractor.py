@@ -5,8 +5,8 @@ Integration tests (require ANTHROPIC_API_KEY): run with `pytest -m integration`.
 import pytest
 from pydantic import ValidationError
 
-from extraction.models import KBArticle
-from extraction.extractor import EXTRACT_TOOL
+from src.extraction.models import KBArticle
+from src.extraction.extractor import EXTRACT_TOOL
 
 
 # ---------------------------------------------------------------------------
@@ -129,7 +129,7 @@ class TestExtractionIntegration:
     """Each test asserts behavioral outcomes from the prompt, not exact field values."""
 
     def test_thread_a_incident(self, thread_a):
-        from extraction.extractor import extract
+        from src.extraction.extractor import extract
         article = extract(thread_a)
 
         assert article.incident_type == "incident"
@@ -143,7 +143,7 @@ class TestExtractionIntegration:
                "summary" in " ".join(article.tags).lower()
 
     def test_thread_b_config(self, thread_b):
-        from extraction.extractor import extract
+        from src.extraction.extractor import extract
         article = extract(thread_b)
 
         # Thread sits at the howto/config boundary — either is acceptable.
@@ -159,7 +159,7 @@ class TestExtractionIntegration:
                    for s in article.systems_affected + article.tags)
 
     def test_thread_c_howto(self, thread_c):
-        from extraction.extractor import extract
+        from src.extraction.extractor import extract
         article = extract(thread_c)
 
         assert article.incident_type == "howto"
@@ -171,7 +171,7 @@ class TestExtractionIntegration:
         assert len(article.steps_taken) >= 4
 
     def test_thread_d_not_viable(self, thread_d):
-        from extraction.extractor import extract
+        from src.extraction.extractor import extract
         article = extract(thread_d)
 
         assert article.extraction_viable is False
@@ -180,7 +180,7 @@ class TestExtractionIntegration:
         assert len(article.low_confidence_reason) > 0
 
     def test_thread_a_pii_detected(self, thread_a):
-        from extraction.extractor import extract
+        from src.extraction.extractor import extract
         article = extract(thread_a)
 
         assert article.pii_detected is True, (
