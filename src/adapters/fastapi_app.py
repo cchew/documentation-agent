@@ -18,11 +18,10 @@ from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
-from src.block_kit import build_error_response, build_kb_response, build_not_viable_response
-from src.storage import get_store
-from src.confluence_client import create_page
 from src.extraction.extractor import extract
-from src.slack_client import fetch_thread, post_processing, post_response, update_response, verify_signature
+from src.pipeline import run_pipeline
+from src.slack_client import post_processing, post_response, verify_signature
+from src.storage import get_store
 
 load_dotenv()
 
@@ -46,39 +45,6 @@ def _require_api_key(key: str = Depends(_api_key_header)) -> None:
     expected = os.environ.get("API_KEY")
     if not expected or key != expected:
         raise HTTPException(status_code=401, detail="Invalid API key")
-
-
-# ---------------------------------------------------------------------------
-# Background pipeline
-# ---------------------------------------------------------------------------
-
-def _run_pipeline(channel_id: str, thread_ts: str, processing_ts: str) -> None:
-    """Fetch thread, extract KB article, update the in-progress message with result."""
-    try:
-        thread_text = fetch_thread(channel_id, thread_ts)
-        article = extract(thread_text)
-
-        article_id = f"{channel_id}_{thread_ts}"
-        get_store().save(article_id, article)
-
-        if article.extraction_viable:
-            confluence_url, page_id = create_page(article)
-            get_store().save_page_id(article_id, page_id)
-            payload = build_kb_response(article, confluence_url)
-        else:
-            payload = build_not_viable_response(article)
-
-    except RuntimeError as e:
-        logger.error("Pipeline runtime error: %s", e)
-        payload = build_error_response("Could not fetch or post to Slack. Check bot permissions.")
-    except ValueError as e:
-        logger.error("Pipeline extraction error: %s", e)
-        payload = build_error_response("Extraction failed — the thread may be in an unexpected format.")
-    except Exception:
-        logger.exception("Unexpected pipeline error")
-        payload = build_error_response("An unexpected error occurred.")
-
-    update_response(channel_id, processing_ts, payload)
 
 
 # ---------------------------------------------------------------------------
@@ -117,7 +83,7 @@ async def slack_actions(request: Request, background_tasks: BackgroundTasks) -> 
         raise HTTPException(status_code=400, detail=f"Missing field in payload: {e}") from e
 
     processing_ts = post_processing(channel_id, thread_ts)
-    background_tasks.add_task(_run_pipeline, channel_id, thread_ts, processing_ts)
+    background_tasks.add_task(run_pipeline, channel_id, thread_ts, processing_ts)
     return Response(status_code=200)
 
 
