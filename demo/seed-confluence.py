@@ -17,8 +17,8 @@ ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 load_dotenv(ROOT / ".env")
 
-from confluence_client import create_page
-from extraction.models import KBArticle
+from src.confluence_client import create_page
+from src.extraction.models import KBArticle
 
 SEED_ARTICLE = KBArticle(
     title="M365 Traffic Bypassing Direct Connect After BGP Route Update",
