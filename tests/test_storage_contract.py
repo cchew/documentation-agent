@@ -1,6 +1,13 @@
+import os
+import boto3
 import pytest
+from moto import mock_aws
 from src.extraction.models import KBArticle
 from src.storage.memory import MemoryStore
+from src.storage.aws_dynamodb import DynamoDBStore
+
+
+TABLE_NAME = "doco-agent-articles-test"
 
 
 def _sample_article() -> KBArticle:
@@ -13,8 +20,27 @@ def _sample_article() -> KBArticle:
 
 
 @pytest.fixture
-def store():
+def memory_store():
     return MemoryStore()
+
+
+@pytest.fixture
+def dynamodb_store():
+    with mock_aws():
+        os.environ["AWS_DEFAULT_REGION"] = "ap-southeast-2"
+        client = boto3.client("dynamodb")
+        client.create_table(
+            TableName=TABLE_NAME,
+            KeySchema=[{"AttributeName": "article_id", "KeyType": "HASH"}],
+            AttributeDefinitions=[{"AttributeName": "article_id", "AttributeType": "S"}],
+            BillingMode="PAY_PER_REQUEST",
+        )
+        yield DynamoDBStore(table_name=TABLE_NAME)
+
+
+@pytest.fixture(params=["memory", "dynamodb"])
+def store(request, memory_store, dynamodb_store):
+    return memory_store if request.param == "memory" else dynamodb_store
 
 
 def test_save_and_get(store):
