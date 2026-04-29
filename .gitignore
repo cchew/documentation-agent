@@ -1,9 +1,11 @@
+*.egg-info/
 *.pyc
 *.pyo
+.claude/
 .demo_state.json
+.DS_Store
 .env
 .env.local
-.claude/
 .pytest_cache/
 .venv/
 __pycache__/
