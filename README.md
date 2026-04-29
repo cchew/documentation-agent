@@ -16,6 +16,7 @@ Converts Slack incident threads and Q&A chains into structured Confluence KB art
 
 | Version | Description |
 |---|---|
+| v0.2.1 | CI fixes: stub Rust binary for CDK stack tests, skip integration tests without API key |
 | v0.2.0 | AWS deployment: Rust API Lambda + Python worker Lambda + SQS + DynamoDB + CDK IaC |
 | v0.1.0 | Localhost deployment: FastAPI + ngrok + Claude API (tool use) + Confluence REST API |
 
