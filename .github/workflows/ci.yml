@@ -20,8 +20,11 @@ jobs:
       - name: Install deps
         run: pip install -e ".[test]" aws-cdk-lib constructs jsii
 
+      - name: Stub Rust binary for CDK stack tests
+        run: mkdir -p infra/aws/api-lambda/target/lambda/api-lambda && touch infra/aws/api-lambda/target/lambda/api-lambda/bootstrap
+
       - name: pytest
-        run: pytest --tb=short
+        run: pytest --tb=short -m "not integration"
         env:
           AWS_DEFAULT_REGION: ap-southeast-2
           AWS_ACCESS_KEY_ID: test
