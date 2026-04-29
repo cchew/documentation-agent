@@ -40,8 +40,19 @@ def main() -> None:
         timestamps = info["timestamps"]
         print(f"\nDeleting {filename} ({len(timestamps)} messages from #{info['channel_name']})")
 
-        # Delete in reverse order (replies before parent)
-        for ts in reversed(timestamps):
+        # Find any extra replies the bot added after seeding (e.g. KB result message).
+        extras: list[str] = []
+        try:
+            replies = client.conversations_replies(channel=channel_id, ts=timestamps[0]).get("messages", [])
+            seeded = set(timestamps)
+            extras = [m["ts"] for m in replies if m["ts"] not in seeded]
+            if extras:
+                print(f"  Found {len(extras)} extra reply(ies) — deleting too")
+        except SlackApiError as e:
+            print(f"  Could not fetch replies: {e.response['error']}")
+
+        # Delete in reverse order (replies before parent); extras first.
+        for ts in list(reversed(extras)) + list(reversed(timestamps)):
             try:
                 client.chat_delete(channel=channel_id, ts=ts)
                 total_deleted += 1

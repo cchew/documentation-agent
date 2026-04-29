@@ -12,6 +12,15 @@ Converts Slack incident threads and Q&A chains into structured Confluence KB art
 
 ---
 
+## Version history
+
+| Version | Description |
+|---|---|
+| v0.2.0 | AWS deployment: Rust API Lambda + Python worker Lambda + SQS + DynamoDB + CDK IaC |
+| v0.1.0 | Localhost: FastAPI + ngrok + Claude API (tool use) + Confluence REST API |
+
+---
+
 ## Requirements
 
 - Python 3.12+
