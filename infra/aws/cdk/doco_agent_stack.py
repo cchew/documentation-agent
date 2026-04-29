@@ -36,7 +36,15 @@ class _LocalWorkerBundler:
     def try_bundle(self, output_dir: str, /, options=None, **kwargs) -> bool:
         try:
             subprocess.run(
-                ["pip", "install", "-r", "requirements.txt", "-t", output_dir],
+                [
+                    "pip", "install",
+                    "--platform", "manylinux2014_aarch64",
+                    "--implementation", "cp",
+                    "--python-version", "311",
+                    "--only-binary", ":all:",
+                    "-r", "requirements.txt",
+                    "-t", output_dir,
+                ],
                 cwd=self._repo_root, check=True, capture_output=True,
             )
             shutil.copytree(
@@ -82,7 +90,7 @@ class DocoAgentStack(Stack):
             "ANTHROPIC_API_KEY_PARAM": f"{ssm_prefix}/anthropic-api-key",
             "SLACK_BOT_TOKEN_PARAM": f"{ssm_prefix}/slack-bot-token",
             "SLACK_SIGNING_SECRET_PARAM": f"{ssm_prefix}/slack-signing-secret",
-            "CONFLUENCE_BASE_URL_PARAM": f"{ssm_prefix}/confluence-base-url",
+            "CONFLUENCE_URL_PARAM": f"{ssm_prefix}/confluence-base-url",
             "CONFLUENCE_EMAIL_PARAM": f"{ssm_prefix}/confluence-email",
             "CONFLUENCE_API_TOKEN_PARAM": f"{ssm_prefix}/confluence-api-token",
             "CONFLUENCE_SPACE_KEY_PARAM": f"{ssm_prefix}/confluence-space-key",

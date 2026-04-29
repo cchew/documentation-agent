@@ -25,6 +25,44 @@ Secrets live in SSM Parameter Store and are resolved at Lambda cold-start. No se
 
 ---
 
+## Step 0: IAM permissions for the deploying principal
+
+If your IAM user/role has `AdministratorAccess`, skip this step.
+
+For a least-privilege setup, two policies are provided in [`infra/aws/cdk/`](infra/aws/cdk/):
+
+- [`bootstrap-policy.json`](infra/aws/cdk/bootstrap-policy.json) — broader perms needed **once** to run `cdk bootstrap` (creates IAM roles, S3 bucket, ECR repo, SSM parameter for the CDK toolkit). Detach after Step 3.
+- [`deploy-policy.json`](infra/aws/cdk/deploy-policy.json) — minimal perms for steady-state deploys. Covers app-secret SSM writes (`/doco-agent/*`), assuming the CDK-created `cdk-*` roles, and reading CFN state. CDK then assumes its own roles to actually create resources.
+
+Attach the bootstrap policy first:
+
+```bash
+ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+USER=$(aws sts get-caller-identity --query Arn --output text | awk -F/ '{print $NF}')
+
+aws iam put-user-policy \
+  --user-name "$USER" \
+  --policy-name DocoAgentCdkBootstrap \
+  --policy-document file://infra/aws/cdk/bootstrap-policy.json
+```
+
+After Step 3 (CDK bootstrap) completes, swap to the narrower policy:
+
+```bash
+aws iam delete-user-policy --user-name "$USER" --policy-name DocoAgentCdkBootstrap
+
+aws iam put-user-policy \
+  --user-name "$USER" \
+  --policy-name DocoAgentCdkDeploy \
+  --policy-document file://infra/aws/cdk/deploy-policy.json
+```
+
+The deploy policy works because `cdk deploy` does not create resources directly with your user's credentials — it assumes the `cdk-hnb659fds-deploy-role-*` IAM role created during bootstrap, and that role holds the broad permissions needed for CloudFormation execution.
+
+If you're using an IAM role instead of a user, swap `put-user-policy`/`delete-user-policy` for `put-role-policy`/`delete-role-policy` and `--user-name` for `--role-name`.
+
+---
+
 ## Step 1: Store secrets in SSM Parameter Store
 
 All secrets are stored as `SecureString` parameters in SSM. Run the following, replacing each value:
