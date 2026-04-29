@@ -68,3 +68,32 @@ python demo/reset-storage.py    # clears storage backend (no-op for memory)
 
 - `Ctrl+C` in the FastAPI terminal
 - `Ctrl+C` in the ngrok terminal
+
+---
+
+## AWS teardown (after AWS UG demo)
+
+The CDK stack incurs minimal cost at rest (SQS, DDB, Lambda — all pay-per-use), but tear it down after the presentation if you don't need it running.
+
+```bash
+cd repo/infra/aws/cdk
+source .venv/bin/activate
+CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+cdk destroy
+```
+
+Note: the DynamoDB table (`doco-agent-articles`) has `RemovalPolicy.RETAIN` and will survive `cdk destroy`. Delete manually if you want a full teardown:
+
+```bash
+aws dynamodb delete-table --region ap-southeast-2 --table-name doco-agent-articles
+```
+
+SSM secrets under `/doco-agent/*` also persist — delete if no longer needed:
+
+```bash
+for p in anthropic-api-key slack-bot-token slack-signing-secret confluence-base-url confluence-email confluence-api-token confluence-space-key; do
+  aws ssm delete-parameter --region ap-southeast-2 --name "/doco-agent/$p"
+done
+```
+
+Before the AWS UG demo, update the Slack app Request URL to the API Gateway URL from stack outputs. After teardown, revert to the ngrok URL.
