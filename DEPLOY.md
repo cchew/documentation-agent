@@ -178,16 +178,30 @@ Slack shortcut → App Settings → Interactivity & Shortcuts → update Request
 
 ## Teardown
 
+Run the teardown script for a full cleanup:
+
 ```bash
-cd infra/aws/cdk
-source .venv/bin/activate
-cdk destroy
+scripts/teardown.sh
 ```
 
-Note: DynamoDB table has `RemovalPolicy.RETAIN` — delete manually if you want a full teardown:
+This destroys the CDK stack, deletes the DynamoDB table (retained by CDK by default), and removes all SSM parameters.
+
+The deploying IAM principal needs the permissions in [`infra/aws/cdk/deploy-policy.json`](infra/aws/cdk/deploy-policy.json), which covers both deploy and teardown:
+
+| Permission | Used for |
+|---|---|
+| `ssm:PutParameter`, `ssm:DeleteParameter`, `ssm:DeleteParameters` | Create/remove secrets at `/doco-agent/*` |
+| `dynamodb:DeleteTable` | Remove retained DynamoDB table on teardown |
+| `sts:AssumeRole` on `cdk-*` roles | CDK deploy/destroy via CloudFormation execution role |
+| `cloudformation:Describe*`, `cloudformation:List*` | CDK stack state reads |
+
+To attach the policy to an IAM user:
 
 ```bash
-aws dynamodb delete-table --table-name doco-agent-articles
+aws iam put-user-policy \
+  --user-name <your-iam-user> \
+  --policy-name DocoAgentCdkDeploy \
+  --policy-document file://infra/aws/cdk/deploy-policy.json
 ```
 
 ---

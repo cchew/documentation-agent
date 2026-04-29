@@ -10,10 +10,20 @@
         "ssm:GetParameters",
         "ssm:GetParametersByPath",
         "ssm:DeleteParameter",
+        "ssm:DeleteParameters",
         "ssm:DescribeParameters",
         "ssm:LabelParameterVersion"
       ],
       "Resource": "arn:aws:ssm:*:*:parameter/doco-agent/*"
+    },
+    {
+      "Sid": "AppDynamoDB",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:DeleteTable",
+        "dynamodb:DescribeTable"
+      ],
+      "Resource": "arn:aws:dynamodb:*:*:table/doco-agent-*"
     },
     {
       "Sid": "AssumeCdkRoles",
