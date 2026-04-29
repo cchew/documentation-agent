@@ -22,6 +22,10 @@ jobs:
 
       - name: pytest
         run: pytest --tb=short
+        env:
+          AWS_DEFAULT_REGION: ap-southeast-2
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
 
   rust:
     name: Rust tests + deny
@@ -72,6 +76,10 @@ jobs:
 
       - name: Install CDK deps
         run: pip install -r requirements.txt
+
+      - name: Stub Rust binary for synth
+        working-directory: .
+        run: mkdir -p infra/aws/api-lambda/target/lambda/api-lambda && touch infra/aws/api-lambda/target/lambda/api-lambda/bootstrap
 
       - name: CDK synth
         env:
