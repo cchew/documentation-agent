@@ -106,6 +106,7 @@ class DocoAgentStack(Stack):
         worker_env = {
             "STORAGE_BACKEND": "dynamodb",
             "DDB_TABLE": self.table.table_name,
+            "UPDATE_NOT_DUPLICATE": "false",
             **self.ssm_param_names,
         }
 
