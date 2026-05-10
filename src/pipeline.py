@@ -1,11 +1,13 @@
 """Cloud-neutral pipeline: Slack thread -> KB article -> Confluence + storage."""
 import logging
+import os
 
 from src.block_kit import build_error_response, build_kb_response, build_not_viable_response
 from src.confluence_client import create_page
 from src.extraction.extractor import extract
 from src.slack_client import fetch_thread, update_response
 from src.storage import get_store
+from src.update_or_create import run_update_or_create
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +30,10 @@ def run_pipeline(channel_id: str, thread_ts: str, processing_ts: str | None) -> 
         store.save(article_id, article)
 
         if article.extraction_viable:
+            if os.environ.get("UPDATE_NOT_DUPLICATE", "false").lower() == "true":
+                run_update_or_create(article_id, article, channel_id, thread_ts)
+                return
+            # v0.2.2 create-only path
             existing_page_id = store.get_page_id(article_id)
             if existing_page_id:
                 logger.info("Reusing Confluence page %s for %s", existing_page_id, article_id)

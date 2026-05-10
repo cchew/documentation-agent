@@ -21,6 +21,42 @@ def reset_store():
     get_store.cache_clear()
 
 
+@patch("src.pipeline.run_update_or_create")
+@patch("src.pipeline.update_response")
+@patch("src.pipeline.create_page")
+@patch("src.pipeline.extract")
+@patch("src.pipeline.fetch_thread")
+def test_gate_true_routes_to_update_or_create(
+    mock_fetch, mock_extract, mock_create, mock_update, mock_uoc, monkeypatch
+):
+    monkeypatch.setenv("UPDATE_NOT_DUPLICATE", "true")
+    mock_fetch.return_value = "thread text"
+    mock_extract.return_value = _viable_article()
+    mock_uoc.return_value = None
+
+    run_pipeline("C1", "1.2", "p.1")
+
+    mock_uoc.assert_called_once_with("C1_1.2", _viable_article(), "C1", "1.2")
+    mock_create.assert_not_called()
+
+
+@patch("src.pipeline.update_response")
+@patch("src.pipeline.create_page")
+@patch("src.pipeline.extract")
+@patch("src.pipeline.fetch_thread")
+def test_gate_false_preserves_create_only_behavior(
+    mock_fetch, mock_extract, mock_create, mock_update, monkeypatch
+):
+    monkeypatch.delenv("UPDATE_NOT_DUPLICATE", raising=False)
+    mock_fetch.return_value = "thread text"
+    mock_extract.return_value = _viable_article()
+    mock_create.return_value = ("https://conf/x", "page-1")
+
+    run_pipeline("C1", "1.2", "p.1")
+
+    mock_create.assert_called_once()
+
+
 @patch("src.pipeline.update_response")
 @patch("src.pipeline.create_page")
 @patch("src.pipeline.extract")
