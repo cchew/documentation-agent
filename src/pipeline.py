@@ -44,6 +44,8 @@ def run_pipeline(channel_id: str, thread_ts: str, processing_ts: str | None) -> 
         else:
             payload = build_not_viable_response(article)
 
+    except NotImplementedError:
+        raise
     except RuntimeError as e:
         logger.error("Pipeline runtime error: %s", e)
         payload = build_error_response("Could not fetch or post to Slack. Check bot permissions.")
