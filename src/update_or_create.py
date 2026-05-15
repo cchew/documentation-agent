@@ -212,7 +212,7 @@ def _post_protected_field_comments(
     if not protected:
         return
     lines = [
-        "<p>🤖 <strong>Documentation Agent</strong> suggested the following updates "
+        "<p>[Doc Agent] <strong>Documentation Agent</strong> suggested the following updates "
         "to protected fields (not applied — this page has been manually edited). "
         "Please review and apply if appropriate:</p><ul>"
     ]
