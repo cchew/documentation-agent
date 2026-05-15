@@ -35,6 +35,8 @@ class Graph:
         self._entry = name
 
     def add_edge(self, from_node: str, to_node: str) -> None:
+        if from_node in self._edges or from_node in self._conditional_edges:
+            raise ValueError(f"Edge already defined from '{from_node}'")
         self._edges[from_node] = to_node
 
     def add_conditional_edge(
@@ -43,6 +45,8 @@ class Graph:
         router: Callable[[dict], str],
         mapping: dict[str, str],
     ) -> None:
+        if from_node in self._edges or from_node in self._conditional_edges:
+            raise ValueError(f"Edge already defined from '{from_node}'")
         self._conditional_edges[from_node] = (router, mapping)
 
     def node_names(self) -> list[str]:
@@ -58,7 +62,8 @@ class Graph:
         Returns the final state with '__current_node__' set to the terminal node.
         """
         current = start_at or self._entry
-        assert current is not None, "No entry point set and no start_at provided"
+        if current is None:
+            raise ValueError("No entry point set and no start_at provided")
 
         while current not in (END, HITL_PAUSE):
             fn = self._nodes.get(current)
@@ -97,7 +102,10 @@ def _confirm_hitl_router(state: dict) -> str:
 
 
 def _action_router(state: dict) -> str:
-    """Route after HITL resume: direction is set by the interaction handler."""
+    """Route after HITL resume: direction is set by the interaction handler.
+
+    Cycle 2: wire as the router for a confirm_resume conditional edge.
+    """
     return state.get("action", "cancel")
 
 
