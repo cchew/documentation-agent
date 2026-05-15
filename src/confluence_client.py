@@ -195,6 +195,120 @@ def delete_page(page_id: str) -> None:
             )
 
 
+def get_page(page_id: str) -> dict:
+    """
+    Fetch a Confluence page.
+    Returns dict with keys: id, title, version (number, by.displayName), body.storage.value.
+    """
+    base = _base_url()
+    headers = {"Authorization": _auth_header(), "Accept": "application/json"}
+    with httpx.Client() as client:
+        response = client.get(
+            f"{base}/rest/api/content/{page_id}",
+            headers=headers,
+            params={"expand": "version,body.storage"},
+            timeout=10,
+        )
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to fetch page {page_id}: {response.status_code} {response.text}"
+            )
+        return response.json()
+
+
+def get_page_versions(page_id: str, limit: int = 20) -> list[dict]:
+    """
+    Return recent version history for a page.
+    Each entry: {number, by: {type, displayName}, when}.
+    Agent-authored versions have by.type == 'anonymous' or a known bot email in by.email.
+    """
+    base = _base_url()
+    headers = {"Authorization": _auth_header(), "Accept": "application/json"}
+    with httpx.Client() as client:
+        response = client.get(
+            f"{base}/rest/api/content/{page_id}/version",
+            headers=headers,
+            params={"limit": limit},
+            timeout=10,
+        )
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to fetch versions for {page_id}: {response.status_code} {response.text}"
+            )
+        data = response.json()
+        return data.get("results", [])
+
+
+def has_human_edits_since(page_id: str, since_version: int) -> bool:
+    """
+    Return True if any version > since_version was authored by a human (not the API token account).
+    Agent writes are identified by the CONFLUENCE_EMAIL env var (the API token identity).
+    """
+    agent_email = os.environ.get("CONFLUENCE_EMAIL", "").lower()
+    versions = get_page_versions(page_id)
+    for v in versions:
+        if v.get("number", 0) <= since_version:
+            continue
+        author = v.get("by", {})
+        email = author.get("email", "").lower()
+        if email and email != agent_email:
+            return True
+        # If email is absent, fall back to checking type
+        if author.get("type") == "known" and not email:
+            return True
+    return False
+
+
+def update_page(page_id: str, article: "KBArticle", current_version: int) -> str:  # type: ignore[name-defined]
+    """
+    Update an existing Confluence page with new article content.
+    current_version must match the current page version (Confluence enforces optimistic locking).
+    Returns the page URL.
+    """
+    space_key = os.environ["CONFLUENCE_SPACE_KEY"]
+    base = _base_url()
+    headers = {
+        "Authorization": _auth_header(),
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+
+    body: dict = {
+        "type": "page",
+        "title": article.title,
+        "version": {"number": current_version + 1},
+        "body": {
+            "storage": {
+                "value": _build_body(article),
+                "representation": "storage",
+            }
+        },
+    }
+
+    with httpx.Client() as client:
+        response = client.put(
+            f"{base}/rest/api/content/{page_id}",
+            headers=headers,
+            json=body,
+            timeout=15,
+        )
+        if response.status_code not in (200, 201):
+            raise RuntimeError(
+                f"Confluence page update failed: {response.status_code} {response.text}"
+            )
+
+        if article.tags:
+            labels = [{"name": tag} for tag in article.tags]
+            client.post(
+                f"{base}/rest/api/content/{page_id}/label",
+                headers=headers,
+                json=labels,
+                timeout=10,
+            )
+
+    return f"{base}/spaces/{space_key}/pages/{page_id}"
+
+
 def list_space_pages() -> list[dict]:
     """List all pages in the demo space. Returns list of {id, title} dicts."""
     space_key = os.environ["CONFLUENCE_SPACE_KEY"]

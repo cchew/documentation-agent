@@ -19,6 +19,7 @@ class KBIndexEntry(BaseModel):
     confluence_url: str | None = None
     last_indexed_version: int = 0
     last_indexed_at: str = ""  # ISO-8601
+    draft_json: str = "{}"  # serialised KBArticle at last agent write (base for three-way merge)
 
 
 _CREATE_TABLE_SQL = """
@@ -31,9 +32,14 @@ CREATE TABLE IF NOT EXISTS kb_index (
     confluence_url        TEXT NOT NULL DEFAULT '',
     embedding             BLOB NOT NULL,
     last_indexed_version  INTEGER NOT NULL DEFAULT 0,
-    last_indexed_at       TEXT NOT NULL DEFAULT ''
+    last_indexed_at       TEXT NOT NULL DEFAULT '',
+    draft_json            TEXT NOT NULL DEFAULT '{}'
 )
 """
+
+_MIGRATE_ADD_DRAFT_JSON = (
+    "ALTER TABLE kb_index ADD COLUMN draft_json TEXT NOT NULL DEFAULT '{}'"
+)
 
 
 class KBIndex:
@@ -49,6 +55,10 @@ class KBIndex:
     def _init_db(self) -> None:
         with contextlib.closing(self._connect()) as conn:
             conn.execute(_CREATE_TABLE_SQL)
+            # Idempotent migration: add draft_json if the column doesn't exist yet
+            cols = {row[1] for row in conn.execute("PRAGMA table_info(kb_index)").fetchall()}
+            if "draft_json" not in cols:
+                conn.execute(_MIGRATE_ADD_DRAFT_JSON)
             conn.commit()
 
     def _connect(self) -> sqlite3.Connection:
@@ -74,8 +84,9 @@ class KBIndex:
                 """
                 INSERT OR REPLACE INTO kb_index
                     (page_id, space_key, title, incident_type, systems_affected,
-                     confluence_url, embedding, last_indexed_version, last_indexed_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     confluence_url, embedding, last_indexed_version, last_indexed_at,
+                     draft_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     entry.page_id,
@@ -87,6 +98,7 @@ class KBIndex:
                     embedding.tobytes(),
                     entry.last_indexed_version,
                     last_indexed_at,
+                    entry.draft_json,
                 ),
             )
             conn.commit()
@@ -143,6 +155,7 @@ class KBIndex:
     @staticmethod
     def _row_to_entry(row: sqlite3.Row) -> KBIndexEntry:
         stored_url = row["confluence_url"]
+        keys = row.keys()
         return KBIndexEntry(
             page_id=row["page_id"],
             space_key=row["space_key"],
@@ -152,4 +165,5 @@ class KBIndex:
             confluence_url=stored_url if stored_url else None,
             last_indexed_version=row["last_indexed_version"],
             last_indexed_at=row["last_indexed_at"],
+            draft_json=row["draft_json"] if "draft_json" in keys else "{}",
         )

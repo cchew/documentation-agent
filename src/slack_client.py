@@ -88,6 +88,17 @@ def update_response(channel_id: str, message_ts: str, payload: dict) -> None:
         raise RuntimeError(f"Failed to update Slack message: {e.response['error']}") from e
 
 
+def dm_user(user_id: str, text: str) -> None:
+    """Open a DM channel with the user and post a plain-text message."""
+    client = WebClient(token=os.environ["SLACK_BOT_TOKEN"])
+    try:
+        dm = client.conversations_open(users=user_id)
+        channel = dm["channel"]["id"]
+        client.chat_postMessage(channel=channel, text=text)
+    except SlackApiError as e:
+        raise RuntimeError(f"Failed to DM user {user_id}: {e.response['error']}") from e
+
+
 def post_response(channel_id: str, thread_ts: str, payload: dict) -> None:
     """Post a Block Kit message back into the originating thread."""
     client = WebClient(token=os.environ["SLACK_BOT_TOKEN"])

@@ -36,7 +36,10 @@ def test_gate_true_routes_to_update_or_create(
 
     run_pipeline("C1", "1.2", "p.1")
 
-    mock_uoc.assert_called_once_with("C1_1.2", _viable_article(), "C1", "1.2")
+    mock_uoc.assert_called_once_with(
+        "C1_1.2", _viable_article(), "C1", "1.2",
+        processing_ts="p.1", user_id=None,
+    )
     mock_create.assert_not_called()
 
 

@@ -104,6 +104,76 @@ def build_match_candidates_card(candidates: list[MatchCandidate]) -> dict:
     return {"blocks": blocks}
 
 
+def build_match_confirmation_card(
+    candidates: list[MatchCandidate],
+    interaction_id: str,
+    has_strong_match: bool,
+) -> dict:
+    """Interactive HITL card — one button per candidate + Create new + Cancel.
+
+    action_id encoding: hitl_update:{interaction_id}:{page_id}
+                        hitl_create:{interaction_id}
+                        hitl_cancel:{interaction_id}
+    """
+    blocks: list[dict] = [
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": "🔍 *Similar articles found — choose an action*",
+            },
+        },
+    ]
+
+    for candidate in candidates:
+        if candidate.confluence_url:
+            title_part = f"<{candidate.confluence_url}|{candidate.title}>"
+        else:
+            title_part = candidate.title
+        blocks.append({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"*{candidate.score_label}:* {title_part}\n_{candidate.reason}_",
+            },
+        })
+
+    blocks.append({"type": "divider"})
+
+    # One button per candidate for updates, plus Create new + Cancel
+    action_elements: list[dict] = []
+    for candidate in candidates:
+        label = candidate.title[:48] + "…" if len(candidate.title) > 48 else candidate.title
+        btn: dict = {
+            "type": "button",
+            "text": {"type": "plain_text", "text": f"Update: {label}"},
+            "action_id": f"hitl_update:{interaction_id}:{candidate.page_id}",
+        }
+        if has_strong_match:
+            btn["style"] = "primary"
+        action_elements.append(btn)
+
+    create_btn: dict = {
+        "type": "button",
+        "text": {"type": "plain_text", "text": "Create new article"},
+        "action_id": f"hitl_create:{interaction_id}",
+    }
+    if not has_strong_match:
+        create_btn["style"] = "primary"
+    action_elements.append(create_btn)
+
+    action_elements.append({
+        "type": "button",
+        "text": {"type": "plain_text", "text": "Cancel"},
+        "action_id": f"hitl_cancel:{interaction_id}",
+        "style": "danger",
+    })
+
+    blocks.append({"type": "actions", "elements": action_elements})
+
+    return {"blocks": blocks}
+
+
 def build_error_response(message: str) -> dict:
     return {
         "blocks": [

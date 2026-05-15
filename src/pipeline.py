@@ -12,7 +12,12 @@ from src.update_or_create import run_update_or_create
 logger = logging.getLogger(__name__)
 
 
-def run_pipeline(channel_id: str, thread_ts: str, processing_ts: str | None) -> None:
+def run_pipeline(
+    channel_id: str,
+    thread_ts: str,
+    processing_ts: str | None,
+    user_id: str | None = None,
+) -> None:
     """
     Fetch the thread, extract a KB article, persist, and (if processing_ts is set)
     update the Slack in-progress message.
@@ -31,7 +36,10 @@ def run_pipeline(channel_id: str, thread_ts: str, processing_ts: str | None) -> 
 
         if article.extraction_viable:
             if os.environ.get("UPDATE_NOT_DUPLICATE", "false").lower() == "true":
-                run_update_or_create(article_id, article, channel_id, thread_ts)
+                run_update_or_create(
+                    article_id, article, channel_id, thread_ts,
+                    processing_ts=processing_ts, user_id=user_id,
+                )
                 return
             # v0.2.2 create-only path
             existing_page_id = store.get_page_id(article_id)

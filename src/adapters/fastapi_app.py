@@ -19,9 +19,11 @@ from pydantic import BaseModel, Field
 logger = logging.getLogger(__name__)
 
 from src.extraction.extractor import extract
+from src.hitl_store import consume as hitl_consume
 from src.pipeline import run_pipeline
-from src.slack_client import post_processing, post_response, verify_signature
+from src.slack_client import post_processing, post_response, update_response, verify_signature
 from src.storage import get_store
+from src.update_or_create import execute_cancel, execute_create, execute_update
 
 load_dotenv()
 
@@ -79,12 +81,113 @@ async def slack_actions(request: Request, background_tasks: BackgroundTasks) -> 
     try:
         channel_id: str = payload["channel"]["id"]
         thread_ts: str = payload["message"]["ts"]
+        user_id: str = payload["user"]["id"]
     except KeyError as e:
         raise HTTPException(status_code=400, detail=f"Missing field in payload: {e}") from e
 
     processing_ts = post_processing(channel_id, thread_ts)
-    background_tasks.add_task(run_pipeline, channel_id, thread_ts, processing_ts)
+    background_tasks.add_task(run_pipeline, channel_id, thread_ts, processing_ts, user_id)
     return Response(status_code=200)
+
+
+@app.post("/slack/interactions")
+async def slack_interactions(request: Request, background_tasks: BackgroundTasks) -> Response:
+    """
+    Receives Slack Block Kit interactive component payloads (button clicks).
+    Must return HTTP 200 within 3 seconds — routing runs in the background.
+    Returns a JSON body that Slack uses to update the original message immediately.
+    """
+    body = await request.body()
+    timestamp = request.headers.get("X-Slack-Request-Timestamp", "")
+    signature = request.headers.get("X-Slack-Signature", "")
+
+    if not verify_signature(body, timestamp, signature):
+        logger.warning("Invalid Slack signature on /slack/interactions")
+        raise HTTPException(status_code=401, detail="Invalid Slack signature")
+
+    form = await request.form()
+    if "payload" not in form:
+        raise HTTPException(status_code=400, detail="Missing payload")
+    try:
+        payload = json.loads(form["payload"])
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid payload JSON")
+
+    if payload.get("type") != "block_actions":
+        return Response(status_code=200)
+
+    actions = payload.get("actions", [])
+    if not actions:
+        return Response(status_code=200)
+
+    action_id: str = actions[0].get("action_id", "")
+
+    # Parse action_id: hitl_update:{interaction_id}:{page_id}
+    #                   hitl_create:{interaction_id}
+    #                   hitl_cancel:{interaction_id}
+    if not action_id.startswith(("hitl_update:", "hitl_create:", "hitl_cancel:")):
+        return Response(status_code=200)
+
+    parts = action_id.split(":", 3)
+    action_type = parts[0]  # hitl_update / hitl_create / hitl_cancel
+    interaction_id = parts[1] if len(parts) > 1 else ""
+    target_page_id = parts[2] if len(parts) > 2 else ""
+
+    pending = hitl_consume(interaction_id)
+    if pending is None:
+        # Already consumed or expired — update message to inform user
+        ack_blocks = [
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "⚠️ This confirmation has already been actioned or expired.",
+                },
+            }
+        ]
+        return Response(
+            content=json.dumps({"replace_original": True, "blocks": ack_blocks}),
+            media_type="application/json",
+        )
+
+    response_ts = pending.processing_ts or pending.thread_ts
+
+    # Acknowledge immediately with a "processing" message
+    ack_blocks = [
+        {
+            "type": "section",
+            "text": {"type": "mrkdwn", "text": "⏳ Processing your choice..."},
+        }
+    ]
+    ack_body = json.dumps({"replace_original": True, "blocks": ack_blocks})
+
+    if action_type == "hitl_update":
+        background_tasks.add_task(
+            execute_update,
+            pending.article_id,
+            pending.article,
+            target_page_id,
+            pending.channel_id,
+            response_ts,
+        )
+    elif action_type == "hitl_create":
+        background_tasks.add_task(
+            execute_create,
+            pending.article_id,
+            pending.article,
+            pending.channel_id,
+            response_ts,
+        )
+    else:  # hitl_cancel
+        background_tasks.add_task(
+            execute_cancel,
+            pending.article,
+            pending.channel_id,
+            response_ts,
+            pending.user_id,
+        )
+
+    return Response(content=ack_body, media_type="application/json")
 
 
 class ExtractRequest(BaseModel):
