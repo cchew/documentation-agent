@@ -1,6 +1,7 @@
 """Builds the Slack Block Kit response message for a KB article creation result."""
 import time
 
+from src.doco_agent_core.models import MatchCandidate
 from src.extraction.models import KBArticle
 
 _SEVERITY_EMOJI = {"p1": "🔴", "p2": "🟡", "p3": "🔵", "p4": "🟢", "unknown": "⚪"}
@@ -82,6 +83,25 @@ def build_not_viable_response(article: KBArticle) -> dict:
             },
         ]
     }
+
+
+def build_match_candidates_card(candidates: list[MatchCandidate]) -> dict:
+    blocks: list[dict] = [
+        {"type": "section", "text": {"type": "mrkdwn", "text": "🔍 *Similar articles found*"}},
+    ]
+
+    for candidate in candidates:
+        if candidate.confluence_url:
+            title_part = f"<{candidate.confluence_url}|{candidate.title}>"
+        else:
+            title_part = candidate.title
+        text = f"*{candidate.score_label}:* {title_part}\n_{candidate.reason}_"
+        blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": text}})
+
+    blocks.append({"type": "divider"})
+    blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": "_A new article will be created._"}})
+
+    return {"blocks": blocks}
 
 
 def build_error_response(message: str) -> dict:

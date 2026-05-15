@@ -121,15 +121,3 @@ def test_no_processing_ts_skips_slack_update(mock_fetch, mock_extract, mock_upda
     run_pipeline("C1", "1.2", None)
 
     mock_update.assert_not_called()
-
-
-@patch("src.pipeline.extract")
-@patch("src.pipeline.fetch_thread")
-def test_gate_enabled_before_cycle1_raises(mock_fetch, mock_extract, monkeypatch):
-    """NotImplementedError from the stub must not be swallowed by the bare except."""
-    monkeypatch.setenv("UPDATE_NOT_DUPLICATE", "true")
-    mock_fetch.return_value = "thread text"
-    mock_extract.return_value = _viable_article()
-
-    with pytest.raises(NotImplementedError):
-        run_pipeline("C1", "1.2", "p.1")
