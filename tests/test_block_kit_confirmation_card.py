@@ -43,12 +43,26 @@ def test_card_has_create_and_cancel_buttons():
     assert "hitl_cancel:hitl_X" in action_ids
 
 
-def test_strong_match_sets_primary_on_update_buttons():
+def test_strong_match_candidate_gets_primary_style():
     candidates = [_candidate("p1", 0.9)]
     card = build_match_confirmation_card(candidates, "hitl_X", has_strong_match=True)
     update_btn = _find_button(card, "hitl_update:hitl_X:p1")
     assert update_btn is not None
     assert update_btn.get("style") == "primary"
+
+
+def test_weak_match_candidate_gets_no_primary_style():
+    """Candidate below 0.85 should not get primary style even when has_strong_match is True
+    (because another candidate might be the strong one)."""
+    candidates = [
+        _candidate("p1", 0.9, "Strong Match Article"),
+        _candidate("p2", 0.5, "Weak Match Article"),
+    ]
+    card = build_match_confirmation_card(candidates, "hitl_X", has_strong_match=True)
+    strong_btn = _find_button(card, "hitl_update:hitl_X:p1")
+    weak_btn = _find_button(card, "hitl_update:hitl_X:p2")
+    assert strong_btn.get("style") == "primary"
+    assert "style" not in weak_btn  # weak match — no primary highlight
 
 
 def test_no_strong_match_sets_primary_on_create_button():

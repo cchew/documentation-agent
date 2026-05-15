@@ -149,7 +149,7 @@ def build_match_confirmation_card(
             "text": {"type": "plain_text", "text": f"Update: {label}"},
             "action_id": f"hitl_update:{interaction_id}:{candidate.page_id}",
         }
-        if has_strong_match:
+        if candidate.score >= 0.85:
             btn["style"] = "primary"
         action_elements.append(btn)
 

@@ -11,7 +11,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from typing import Any
 
 from pydantic import BaseModel
 
@@ -83,7 +82,15 @@ def get(interaction_id: str) -> PendingInteraction | None:
 
 
 def _schedule_timeout(interaction_id: str) -> None:
-    """Schedule an asyncio task to auto-cancel the interaction on timeout."""
+    """Schedule an asyncio task to auto-cancel the interaction on timeout.
+
+    NOTE: FastAPI dispatches sync background tasks (and therefore run_update_or_create)
+    in a threadpool executor. asyncio.get_event_loop() called from a thread in Python
+    3.10+ returns a per-thread loop that is not running, so this call is a no-op in the
+    FastAPI deployment. The expiry check in consume()/get() still fires correctly on the
+    next call; only the proactive DM notification is skipped. Acceptable for demo scope;
+    fix for production by passing the running loop from the async endpoint context.
+    """
     try:
         loop = asyncio.get_event_loop()
         if loop.is_running():

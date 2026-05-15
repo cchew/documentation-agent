@@ -244,3 +244,143 @@ def test_merge_no_base_returns_draft():
     draft = _article()
     merged = _three_way_merge(None, draft, human_edited=True)
     assert merged == draft
+
+
+# ---------------------------------------------------------------------------
+# execute_update
+# ---------------------------------------------------------------------------
+
+@patch("src.update_or_create._get_kb_index")
+@patch("src.update_or_create.update_page")
+@patch("src.update_or_create.has_human_edits_since")
+@patch("src.update_or_create.get_page")
+@patch("src.update_or_create.get_store")
+@patch("src.update_or_create.update_response")
+def test_execute_update_clean_overwrite_no_human_edits(
+    mock_update_response, mock_get_store, mock_get_page,
+    mock_human_edits, mock_update_page, mock_get_kb_index
+):
+    """No human edits → clean overwrite; result card posted; article re-indexed."""
+    mock_get_page.return_value = {"version": {"number": 3}}
+    mock_human_edits.return_value = False
+    mock_update_page.return_value = "https://confluence.example.com/spaces/KB/pages/page-99"
+
+    mock_store = MagicMock()
+    mock_get_store.return_value = mock_store
+
+    mock_kb_index = MagicMock()
+    mock_kb_index.get.return_value = None  # no stored base
+    mock_get_kb_index.return_value = mock_kb_index
+
+    from src.update_or_create import execute_update
+    execute_update("C1_1.0", _article(), "page-99", "C1", "proc-ts")
+
+    mock_update_page.assert_called_once()
+    # The article passed to update_page should be the draft (no merge needed)
+    called_article = mock_update_page.call_args[0][1]
+    assert called_article.summary == _article().summary
+
+    mock_update_response.assert_called_once()
+    payload = mock_update_response.call_args[0][2]
+    assert "KB Article Created" in str(payload)
+
+    mock_kb_index.save.assert_called_once()
+
+
+@patch("src.update_or_create._get_kb_index")
+@patch("src.update_or_create.update_page")
+@patch("src.update_or_create.has_human_edits_since")
+@patch("src.update_or_create.get_page")
+@patch("src.update_or_create.get_store")
+@patch("src.update_or_create.update_response")
+def test_execute_update_merges_when_human_edits(
+    mock_update_response, mock_get_store, mock_get_page,
+    mock_human_edits, mock_update_page, mock_get_kb_index
+):
+    """Human edits present → merge applied; scalar fields from base, list fields unioned."""
+    mock_get_page.return_value = {"version": {"number": 5}}
+    mock_human_edits.return_value = True
+    mock_update_page.return_value = "https://confluence.example.com/spaces/KB/pages/page-99"
+
+    mock_store = MagicMock()
+    mock_get_store.return_value = mock_store
+
+    base = _article()
+    base.systems_affected = ["auth-service"]
+    stored_entry = MagicMock()
+    stored_entry.draft_json = base.model_dump_json()
+    stored_entry.last_indexed_version = 3
+
+    mock_kb_index = MagicMock()
+    mock_kb_index.get.return_value = stored_entry
+    mock_get_kb_index.return_value = mock_kb_index
+
+    draft = _article()
+    draft.summary = "Agent updated summary"
+    draft.systems_affected = ["auth-service", "cache-service"]
+
+    from src.update_or_create import execute_update
+    execute_update("C1_1.0", draft, "page-99", "C1", "proc-ts")
+
+    called_article = mock_update_page.call_args[0][1]
+    # Scalar field protected — keeps base value
+    assert called_article.summary == base.summary
+    # List field unioned — cache-service added
+    assert "cache-service" in called_article.systems_affected
+    assert "auth-service" in called_article.systems_affected
+
+
+@patch("src.update_or_create._get_kb_index")
+@patch("src.update_or_create.create_page")
+@patch("src.update_or_create.get_page")
+@patch("src.update_or_create.get_store")
+@patch("src.update_or_create.update_response")
+def test_execute_update_falls_back_to_create_on_get_page_failure(
+    mock_update_response, mock_get_store, mock_get_page,
+    mock_create_page, mock_get_kb_index
+):
+    """get_page raises → fallback to create path."""
+    mock_get_page.side_effect = RuntimeError("Confluence unreachable")
+    mock_create_page.return_value = ("https://confluence.example.com/page/new", "page-new")
+
+    mock_store = MagicMock()
+    mock_store.get_page_id.return_value = None
+    mock_get_store.return_value = mock_store
+
+    mock_kb_index = MagicMock()
+    mock_get_kb_index.return_value = mock_kb_index
+
+    from src.update_or_create import execute_update
+    execute_update("C1_1.0", _article(), "page-99", "C1", "proc-ts")
+
+    mock_create_page.assert_called_once()
+
+
+@patch("src.update_or_create._get_kb_index")
+@patch("src.update_or_create.update_page")
+@patch("src.update_or_create.has_human_edits_since")
+@patch("src.update_or_create.get_page")
+@patch("src.update_or_create.get_store")
+@patch("src.update_or_create.update_response")
+def test_execute_update_posts_error_card_on_update_page_failure(
+    mock_update_response, mock_get_store, mock_get_page,
+    mock_human_edits, mock_update_page, mock_get_kb_index
+):
+    """update_page raises → error card posted, no exception propagated."""
+    mock_get_page.return_value = {"version": {"number": 1}}
+    mock_human_edits.return_value = False
+    mock_update_page.side_effect = RuntimeError("Confluence write failed")
+
+    mock_store = MagicMock()
+    mock_get_store.return_value = mock_store
+
+    mock_kb_index = MagicMock()
+    mock_kb_index.get.return_value = None
+    mock_get_kb_index.return_value = mock_kb_index
+
+    from src.update_or_create import execute_update
+    execute_update("C1_1.0", _article(), "page-99", "C1", "proc-ts")
+
+    mock_update_response.assert_called_once()
+    payload = mock_update_response.call_args[0][2]
+    assert "Failed" in str(payload)
