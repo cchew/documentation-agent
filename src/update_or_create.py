@@ -187,7 +187,7 @@ def execute_update(
         log_run(
             action="update",
             target_page_id=target_page_id,
-            match_candidates=[],
+            match_candidates=[],  # TODO(cycle-2): thread candidates from run_update_or_create
             protected_fields=[p.field_name for p in protected],
             status="success",
         )

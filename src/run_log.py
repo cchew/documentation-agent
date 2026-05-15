@@ -14,9 +14,6 @@ import time
 import uuid
 from pathlib import Path
 
-_RUN_LOG_PATH = Path(os.environ.get("RUN_LOG_PATH", "var/runs.jsonl"))
-
-
 def log_run(
     action: str,
     target_page_id: str | None,
