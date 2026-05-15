@@ -20,6 +20,7 @@ from src.doco_agent_core.matcher import build_embed_text, match
 from src.doco_agent_core.models import ProtectedField
 from src.extraction.models import KBArticle
 from src.hitl_store import register as hitl_register
+from src.run_log import log_run
 from src.slack_client import dm_user, update_response
 from src.storage import get_store
 
@@ -153,6 +154,10 @@ def execute_update(
         logger.exception("Confluence update failed for page %s", target_page_id)
         from src.block_kit import build_error_response
         update_response(channel_id, response_ts, build_error_response("Failed to update the Confluence page."))
+        try:
+            log_run(action="update", target_page_id=target_page_id, match_candidates=[], protected_fields=[], status="error", error_message="Confluence update_page failed")
+        except Exception:
+            logger.exception("run_log write failed; continuing")
         return
 
     _post_protected_field_comments(target_page_id, protected)
@@ -178,6 +183,16 @@ def execute_update(
 
     payload = build_kb_response(merged, confluence_url)
     update_response(channel_id, response_ts, payload)
+    try:
+        log_run(
+            action="update",
+            target_page_id=target_page_id,
+            match_candidates=[],
+            protected_fields=[p.field_name for p in protected],
+            status="success",
+        )
+    except Exception:
+        logger.exception("run_log write failed; continuing")
 
 
 def execute_cancel(
@@ -193,6 +208,10 @@ def execute_cancel(
         response_ts,
         build_error_response(f"Cancelled — *{article.title}* was not published."),
     )
+    try:
+        log_run(action="cancel", target_page_id=None, match_candidates=[], protected_fields=[], status="success")
+    except Exception:
+        logger.exception("run_log write failed; continuing")
     if user_id:
         try:
             dm_user(user_id, f"You cancelled the KB article publication for *{article.title}*.")
@@ -264,6 +283,10 @@ def _do_create(
 
     payload = build_kb_response(article, confluence_url)
     update_response(channel_id, response_ts, payload)
+    try:
+        log_run(action="create", target_page_id=page_id, match_candidates=[], protected_fields=[], status="success")
+    except Exception:
+        logger.exception("run_log write failed; continuing")
 
 
 _PROTECTED_SCALAR_FIELDS: tuple[str, ...] = (
