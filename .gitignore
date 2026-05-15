@@ -9,4 +9,5 @@
 .pytest_cache/
 .venv/
 __pycache__/
+var/
 venv/
