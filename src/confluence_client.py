@@ -310,7 +310,7 @@ def update_page(page_id: str, article: "KBArticle", current_version: int) -> str
 
 
 def post_page_comment(page_id: str, html_body: str) -> None:
-    """Post an inline comment on a Confluence page."""
+    """Post a page-level comment on a Confluence page."""
     base = _base_url()
     headers = {
         "Authorization": _auth_header(),
