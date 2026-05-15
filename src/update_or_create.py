@@ -17,6 +17,7 @@ from src.block_kit import (
 from src.confluence_client import create_page, get_page, has_human_edits_since, update_page
 from src.doco_agent_core.kb_index import KBIndex, KBIndexEntry
 from src.doco_agent_core.matcher import build_embed_text, match
+from src.doco_agent_core.models import ProtectedField
 from src.extraction.models import KBArticle
 from src.hitl_store import register as hitl_register
 from src.slack_client import dm_user, update_response
@@ -248,7 +249,7 @@ def _three_way_merge(
     base: KBArticle | None,
     draft: KBArticle,
     human_edited: bool,
-) -> tuple[KBArticle, list["ProtectedField"]]:
+) -> tuple[KBArticle, list[ProtectedField]]:
     """
     Three-way merge: base = last agent write, draft = new agent output.
 
@@ -257,8 +258,6 @@ def _three_way_merge(
     fields, report which scalar fields the draft wanted to change.
     Protected fields are surfaced as Confluence comments in _post_protected_field_comments.
     """
-    from src.doco_agent_core.models import ProtectedField
-
     if not human_edited or base is None:
         return draft, []
 
