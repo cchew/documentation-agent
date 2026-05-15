@@ -207,25 +207,57 @@ def test_execute_cancel_no_dm_when_no_user_id(mock_update_response, mock_dm_user
 # _three_way_merge
 # ---------------------------------------------------------------------------
 
-def test_merge_no_human_edits_returns_draft():
+def test_merge_no_human_edits_returns_draft_and_no_protected_fields():
     from src.update_or_create import _three_way_merge
     base = _article()
     draft = _article()
     draft.summary = "Updated summary"
-    merged = _three_way_merge(base, draft, human_edited=False)
+    merged, protected = _three_way_merge(base, draft, human_edited=False)
     assert merged.summary == "Updated summary"
+    assert protected == []
 
 
-def test_merge_human_edits_protects_scalar_fields():
+def test_merge_human_edits_protects_scalar_fields_and_reports_them():
     from src.update_or_create import _three_way_merge
     base = _article()
     draft = _article()
     draft.summary = "Agent updated summary"
     draft.resolution = "Agent updated resolution"
-    merged = _three_way_merge(base, draft, human_edited=True)
-    # Scalar fields should keep base values
+    merged, protected = _three_way_merge(base, draft, human_edited=True)
     assert merged.summary == base.summary
     assert merged.resolution == base.resolution
+    protected_names = [p.field_name for p in protected]
+    assert "summary" in protected_names
+    assert "resolution" in protected_names
+
+
+def test_protected_field_records_draft_value():
+    from src.update_or_create import _three_way_merge
+    from src.doco_agent_core.models import ProtectedField
+    base = _article()
+    draft = _article()
+    draft.resolution = "New agent resolution"
+    _, protected = _three_way_merge(base, draft, human_edited=True)
+    resolution_pf = next((p for p in protected if p.field_name == "resolution"), None)
+    assert resolution_pf is not None
+    assert resolution_pf.draft_value == "New agent resolution"
+    assert resolution_pf.base_value == base.resolution
+
+
+def test_no_protected_fields_when_draft_matches_base():
+    from src.update_or_create import _three_way_merge
+    base = _article()
+    draft = _article()  # identical to base
+    _, protected = _three_way_merge(base, draft, human_edited=True)
+    assert protected == []
+
+
+def test_merge_no_base_returns_draft_and_no_protected_fields():
+    from src.update_or_create import _three_way_merge
+    draft = _article()
+    merged, protected = _three_way_merge(None, draft, human_edited=True)
+    assert merged == draft
+    assert protected == []
 
 
 def test_merge_human_edits_unions_list_fields():
@@ -234,16 +266,9 @@ def test_merge_human_edits_unions_list_fields():
     base.systems_affected = ["auth-service"]
     draft = _article()
     draft.systems_affected = ["auth-service", "cache-service"]
-    merged = _three_way_merge(base, draft, human_edited=True)
+    merged, _ = _three_way_merge(base, draft, human_edited=True)
     assert "auth-service" in merged.systems_affected
     assert "cache-service" in merged.systems_affected
-
-
-def test_merge_no_base_returns_draft():
-    from src.update_or_create import _three_way_merge
-    draft = _article()
-    merged = _three_way_merge(None, draft, human_edited=True)
-    assert merged == draft
 
 
 # ---------------------------------------------------------------------------

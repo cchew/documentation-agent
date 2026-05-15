@@ -143,7 +143,7 @@ def execute_update(
         logger.warning("Could not check human edits for %s; assuming no edits", target_page_id)
 
     # Three-way merge: only apply draft fields that haven't been human-edited
-    merged = _three_way_merge(base_article, article, human_edited)
+    merged, protected = _three_way_merge(base_article, article, human_edited)
 
     # Write back to Confluence
     try:
@@ -239,20 +239,28 @@ def _do_create(
     update_response(channel_id, response_ts, payload)
 
 
+_PROTECTED_SCALAR_FIELDS: tuple[str, ...] = (
+    "title", "summary", "resolution", "root_cause", "severity",
+)
+
+
 def _three_way_merge(
     base: KBArticle | None,
     draft: KBArticle,
     human_edited: bool,
-) -> KBArticle:
+) -> tuple[KBArticle, list["ProtectedField"]]:
     """
-    Three-way merge: base = last agent write, draft = new agent output, current = live page.
+    Three-way merge: base = last agent write, draft = new agent output.
 
-    If no human edits detected → clean overwrite with draft.
-    If human edits detected → protect scalar fields, union-merge list fields.
-    Protected fields are skipped here; sub-part (c) adds comment-back to Confluence.
+    If no human edits detected → clean overwrite with draft, no protected fields.
+    If human edits detected → protect scalar fields (keep base values), union list
+    fields, report which scalar fields the draft wanted to change.
+    Protected fields are surfaced as Confluence comments in _post_protected_field_comments.
     """
+    from src.doco_agent_core.models import ProtectedField
+
     if not human_edited or base is None:
-        return draft
+        return draft, []
 
     # Human edits exist: union list fields, protect scalar fields (keep base values)
     merged_data = base.model_dump()
@@ -269,7 +277,18 @@ def _three_way_merge(
     merged_data["pii_detected"] = draft.pii_detected
     merged_data["pii_fields"] = draft.pii_fields
 
-    return KBArticle.model_validate(merged_data)
+    protected: list[ProtectedField] = []
+    for field in _PROTECTED_SCALAR_FIELDS:
+        base_val = str(getattr(base, field, None) or "")
+        draft_val = str(getattr(draft, field, None) or "")
+        if base_val != draft_val:
+            protected.append(ProtectedField(
+                field_name=field,
+                base_value=getattr(base, field, None),
+                draft_value=getattr(draft, field, None),
+            ))
+
+    return KBArticle.model_validate(merged_data), protected
 
 
 def _union_list(existing: list, additions: list) -> list:

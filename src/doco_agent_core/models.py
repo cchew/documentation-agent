@@ -16,6 +16,12 @@ class MatchCandidate(BaseModel):
     reason: str
 
 
+class ProtectedField(BaseModel):
+    field_name: str
+    base_value: str | None
+    draft_value: str | None
+
+
 class MatchResult(BaseModel):
     candidates: list[MatchCandidate]
 
