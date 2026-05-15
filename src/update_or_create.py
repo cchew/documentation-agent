@@ -14,7 +14,7 @@ from src.block_kit import (
     build_match_candidates_card,
     build_match_confirmation_card,
 )
-from src.confluence_client import create_page, get_page, has_human_edits_since, update_page
+from src.confluence_client import create_page, get_page, has_human_edits_since, post_page_comment, update_page
 from src.doco_agent_core.kb_index import KBIndex, KBIndexEntry
 from src.doco_agent_core.matcher import build_embed_text, match
 from src.doco_agent_core.models import ProtectedField
@@ -155,6 +155,8 @@ def execute_update(
         update_response(channel_id, response_ts, build_error_response("Failed to update the Confluence page."))
         return
 
+    _post_protected_field_comments(target_page_id, protected)
+
     # Re-index with the new draft
     store = get_store()
     store.save_page_id(article_id, target_page_id)
@@ -201,6 +203,30 @@ def execute_cancel(
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
+def _post_protected_field_comments(
+    page_id: str,
+    protected: list[ProtectedField],
+) -> None:
+    """Post a Confluence comment listing scalar fields the agent wanted to update but couldn't."""
+    if not protected:
+        return
+    lines = [
+        "<p>🤖 <strong>Documentation Agent</strong> suggested the following updates "
+        "to protected fields (not applied — this page has been manually edited). "
+        "Please review and apply if appropriate:</p><ul>"
+    ]
+    for field in protected:
+        lines.append(
+            f"<li><strong>{field.field_name}:</strong> "
+            f"&ldquo;{field.draft_value}&rdquo;</li>"
+        )
+    lines.append("</ul>")
+    try:
+        post_page_comment(page_id, "".join(lines))
+    except Exception:
+        logger.exception("Failed to post protected-field comment on %s; continuing", page_id)
+
 
 def _do_create(
     article_id: str,

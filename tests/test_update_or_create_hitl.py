@@ -409,3 +409,63 @@ def test_execute_update_posts_error_card_on_update_page_failure(
     mock_update_response.assert_called_once()
     payload = mock_update_response.call_args[0][2]
     assert "Failed" in str(payload)
+
+
+@patch("src.update_or_create._get_kb_index")
+@patch("src.update_or_create._post_protected_field_comments")
+@patch("src.update_or_create.update_page")
+@patch("src.update_or_create.has_human_edits_since")
+@patch("src.update_or_create.get_page")
+@patch("src.update_or_create.get_store")
+@patch("src.update_or_create.update_response")
+def test_execute_update_calls_comment_back_for_protected_fields(
+    mock_update_response, mock_get_store, mock_get_page,
+    mock_human_edits, mock_update_page, mock_comment_back, mock_get_kb_index
+):
+    mock_get_page.return_value = {"version": {"number": 3}}
+    mock_human_edits.return_value = True
+    mock_update_page.return_value = "https://confluence.example.com/spaces/KB/pages/p99"
+    mock_get_store.return_value = MagicMock()
+
+    base = _article()
+    stored = MagicMock()
+    stored.draft_json = base.model_dump_json()
+    stored.last_indexed_version = 2
+    mock_get_kb_index.return_value = MagicMock()
+    mock_get_kb_index.return_value.get.return_value = stored
+
+    draft = _article()
+    draft.resolution = "Updated resolution"
+
+    from src.update_or_create import execute_update
+    execute_update("C1_1.0", draft, "p99", "C1", "proc-ts")
+
+    mock_comment_back.assert_called_once()
+    call_args = mock_comment_back.call_args[0]
+    assert call_args[0] == "p99"
+    protected_fields = call_args[1]
+    assert any(p.field_name == "resolution" for p in protected_fields)
+
+
+@patch("src.update_or_create._get_kb_index")
+@patch("src.update_or_create._post_protected_field_comments")
+@patch("src.update_or_create.update_page")
+@patch("src.update_or_create.has_human_edits_since")
+@patch("src.update_or_create.get_page")
+@patch("src.update_or_create.get_store")
+@patch("src.update_or_create.update_response")
+def test_execute_update_no_comment_when_no_protected_fields(
+    mock_update_response, mock_get_store, mock_get_page,
+    mock_human_edits, mock_update_page, mock_comment_back, mock_get_kb_index
+):
+    mock_get_page.return_value = {"version": {"number": 1}}
+    mock_human_edits.return_value = False  # no human edits → no protected fields
+    mock_update_page.return_value = "https://confluence.example.com/spaces/KB/pages/p99"
+    mock_get_store.return_value = MagicMock()
+    mock_get_kb_index.return_value = MagicMock()
+    mock_get_kb_index.return_value.get.return_value = None
+
+    from src.update_or_create import execute_update
+    execute_update("C1_1.0", _article(), "p99", "C1", "proc-ts")
+
+    mock_comment_back.assert_called_once_with("p99", [])

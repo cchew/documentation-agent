@@ -309,6 +309,37 @@ def update_page(page_id: str, article: "KBArticle", current_version: int) -> str
     return f"{base}/spaces/{space_key}/pages/{page_id}"
 
 
+def post_page_comment(page_id: str, html_body: str) -> None:
+    """Post an inline comment on a Confluence page."""
+    base = _base_url()
+    headers = {
+        "Authorization": _auth_header(),
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+    body = {
+        "type": "comment",
+        "container": {"id": page_id, "type": "page"},
+        "body": {
+            "storage": {
+                "value": html_body,
+                "representation": "storage",
+            }
+        },
+    }
+    with httpx.Client() as client:
+        response = client.post(
+            f"{base}/rest/api/content",
+            headers=headers,
+            json=body,
+            timeout=10,
+        )
+        if response.status_code not in (200, 201):
+            raise RuntimeError(
+                f"Failed to post comment on page {page_id}: {response.status_code} {response.text}"
+            )
+
+
 def list_space_pages() -> list[dict]:
     """List all pages in the demo space. Returns list of {id, title} dicts."""
     space_key = os.environ["CONFLUENCE_SPACE_KEY"]
