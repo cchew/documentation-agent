@@ -61,7 +61,7 @@ python demo/reset-confluence.py
 ### Reset storage backend
 
 ```bash
-python demo/reset-storage.py    # clears storage backend (no-op for memory)
+python demo/reset-storage.py    # clears storage backend, KB index, and run log
 ```
 
 ### Stop services

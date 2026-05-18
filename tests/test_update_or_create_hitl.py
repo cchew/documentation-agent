@@ -52,11 +52,13 @@ def reset_stores():
 @patch("src.update_or_create._get_kb_index")
 @patch("src.update_or_create.hitl_register")
 @patch("src.update_or_create.update_response")
+@patch("src.update_or_create.get_page")
 @patch("src.update_or_create.match")
 def test_hitl_path_posts_confirmation_card_and_registers(
-    mock_match, mock_update_response, mock_hitl_register, mock_get_kb_index
+    mock_match, mock_get_page, mock_update_response, mock_hitl_register, mock_get_kb_index
 ):
     mock_match.return_value = MatchResult(candidates=[_candidate(0.5)])
+    mock_get_page.return_value = {"title": "IAM Auth Failure"}
     mock_get_kb_index.return_value = MagicMock()
 
     from src.update_or_create import run_update_or_create
@@ -100,11 +102,13 @@ def test_no_candidates_creates_immediately(
 @patch("src.update_or_create._get_kb_index")
 @patch("src.update_or_create.hitl_register")
 @patch("src.update_or_create.update_response")
+@patch("src.update_or_create.get_page")
 @patch("src.update_or_create.match")
 def test_hitl_card_post_failure_still_registers(
-    mock_match, mock_update_response, mock_hitl_register, mock_get_kb_index
+    mock_match, mock_get_page, mock_update_response, mock_hitl_register, mock_get_kb_index
 ):
     mock_match.return_value = MatchResult(candidates=[_candidate(0.9)])
+    mock_get_page.return_value = {"title": "IAM Auth Failure"}
     mock_get_kb_index.return_value = MagicMock()
     mock_update_response.side_effect = RuntimeError("Slack down")
 
@@ -118,11 +122,13 @@ def test_hitl_card_post_failure_still_registers(
 @patch("src.update_or_create._get_kb_index")
 @patch("src.update_or_create.hitl_register")
 @patch("src.update_or_create.update_response")
+@patch("src.update_or_create.get_page")
 @patch("src.update_or_create.match")
 def test_uses_processing_ts_for_update_response(
-    mock_match, mock_update_response, mock_hitl_register, mock_get_kb_index
+    mock_match, mock_get_page, mock_update_response, mock_hitl_register, mock_get_kb_index
 ):
     mock_match.return_value = MatchResult(candidates=[_candidate(0.5)])
+    mock_get_page.return_value = {"title": "IAM Auth Failure"}
     mock_get_kb_index.return_value = MagicMock()
 
     from src.update_or_create import run_update_or_create
@@ -135,11 +141,13 @@ def test_uses_processing_ts_for_update_response(
 @patch("src.update_or_create._get_kb_index")
 @patch("src.update_or_create.hitl_register")
 @patch("src.update_or_create.update_response")
+@patch("src.update_or_create.get_page")
 @patch("src.update_or_create.match")
 def test_falls_back_to_thread_ts_when_no_processing_ts(
-    mock_match, mock_update_response, mock_hitl_register, mock_get_kb_index
+    mock_match, mock_get_page, mock_update_response, mock_hitl_register, mock_get_kb_index
 ):
     mock_match.return_value = MatchResult(candidates=[_candidate(0.5)])
+    mock_get_page.return_value = {"title": "IAM Auth Failure"}
     mock_get_kb_index.return_value = MagicMock()
 
     from src.update_or_create import run_update_or_create
@@ -170,8 +178,8 @@ def test_execute_create_posts_kb_card(
     execute_create("C1_5.0", _article(), "C1", "resp-ts")
 
     mock_create_page.assert_called_once()
-    mock_update_response.assert_called_once()
-    payload = mock_update_response.call_args[0][2]
+    assert mock_update_response.call_count == 2  # ack + final result
+    payload = mock_update_response.call_args[0][2]  # last call = final result
     assert "KB Article Created" in str(payload)
 
 
@@ -185,8 +193,8 @@ def test_execute_cancel_posts_card_and_dms(mock_update_response, mock_dm_user):
     from src.update_or_create import execute_cancel
     execute_cancel(_article(), "C1", "resp-ts", user_id="U99")
 
-    mock_update_response.assert_called_once()
-    payload = mock_update_response.call_args[0][2]
+    assert mock_update_response.call_count == 2  # ack + final result
+    payload = mock_update_response.call_args[0][2]  # last call = final result
     assert "Cancelled" in str(payload)
     call_args = mock_dm_user.call_args[0]
     assert call_args[0] == "U99"
@@ -199,7 +207,7 @@ def test_execute_cancel_no_dm_when_no_user_id(mock_update_response, mock_dm_user
     from src.update_or_create import execute_cancel
     execute_cancel(_article(), "C1", "resp-ts", user_id=None)
 
-    mock_update_response.assert_called_once()
+    assert mock_update_response.call_count == 2  # ack + final result
     mock_dm_user.assert_not_called()
 
 
@@ -207,14 +215,16 @@ def test_execute_cancel_no_dm_when_no_user_id(mock_update_response, mock_dm_user
 # _three_way_merge
 # ---------------------------------------------------------------------------
 
-def test_merge_no_human_edits_returns_draft_and_no_protected_fields():
+def test_merge_no_human_edits_protects_non_empty_scalars():
+    """No human edits but base exists — scalar fields protected to prevent LLM drift."""
     from src.update_or_create import _three_way_merge
     base = _article()
     draft = _article()
     draft.summary = "Updated summary"
     merged, protected = _three_way_merge(base, draft, human_edited=False)
-    assert merged.summary == "Updated summary"
-    assert protected == []
+    # Scalar protected — base value kept, drift prevented
+    assert merged.summary == base.summary
+    assert any(p.field_name == "summary" for p in protected)
 
 
 def test_merge_human_edits_protects_scalar_fields_and_reports_them():
@@ -277,35 +287,32 @@ def test_merge_human_edits_unions_list_fields():
 
 @patch("src.update_or_create._get_kb_index")
 @patch("src.update_or_create.update_page")
-@patch("src.update_or_create.has_human_edits_since")
 @patch("src.update_or_create.get_page")
 @patch("src.update_or_create.get_store")
 @patch("src.update_or_create.update_response")
 def test_execute_update_clean_overwrite_no_human_edits(
     mock_update_response, mock_get_store, mock_get_page,
-    mock_human_edits, mock_update_page, mock_get_kb_index
+    mock_update_page, mock_get_kb_index
 ):
-    """No human edits → clean overwrite; result card posted; article re-indexed."""
-    mock_get_page.return_value = {"version": {"number": 3}}
-    mock_human_edits.return_value = False
+    """No base → draft used as-is; result card posted; article re-indexed."""
+    mock_get_page.return_value = {"version": {"number": 1}, "title": "Old title"}
     mock_update_page.return_value = "https://confluence.example.com/spaces/KB/pages/page-99"
 
     mock_store = MagicMock()
     mock_get_store.return_value = mock_store
 
     mock_kb_index = MagicMock()
-    mock_kb_index.get.return_value = None  # no stored base
+    mock_kb_index.get.return_value = None  # no stored base → draft used unchanged
     mock_get_kb_index.return_value = mock_kb_index
 
     from src.update_or_create import execute_update
     execute_update("C1_1.0", _article(), "page-99", "C1", "proc-ts")
 
     mock_update_page.assert_called_once()
-    # The article passed to update_page should be the draft (no merge needed)
     called_article = mock_update_page.call_args[0][1]
     assert called_article.summary == _article().summary
 
-    mock_update_response.assert_called_once()
+    assert mock_update_response.call_count == 2  # ack + final result
     payload = mock_update_response.call_args[0][2]
     assert "KB Article Created" in str(payload)
 
@@ -314,17 +321,15 @@ def test_execute_update_clean_overwrite_no_human_edits(
 
 @patch("src.update_or_create._get_kb_index")
 @patch("src.update_or_create.update_page")
-@patch("src.update_or_create.has_human_edits_since")
 @patch("src.update_or_create.get_page")
 @patch("src.update_or_create.get_store")
 @patch("src.update_or_create.update_response")
 def test_execute_update_merges_when_human_edits(
     mock_update_response, mock_get_store, mock_get_page,
-    mock_human_edits, mock_update_page, mock_get_kb_index
+    mock_update_page, mock_get_kb_index
 ):
-    """Human edits present → merge applied; scalar fields from base, list fields unioned."""
-    mock_get_page.return_value = {"version": {"number": 5}}
-    mock_human_edits.return_value = True
+    """Human edits present (version > last_indexed) → merge applied; scalar fields from base, list fields unioned."""
+    mock_get_page.return_value = {"version": {"number": 5}}  # 5 > last_indexed_version=3 → human_edited
     mock_update_page.return_value = "https://confluence.example.com/spaces/KB/pages/page-99"
 
     mock_store = MagicMock()
@@ -383,17 +388,15 @@ def test_execute_update_falls_back_to_create_on_get_page_failure(
 
 @patch("src.update_or_create._get_kb_index")
 @patch("src.update_or_create.update_page")
-@patch("src.update_or_create.has_human_edits_since")
 @patch("src.update_or_create.get_page")
 @patch("src.update_or_create.get_store")
 @patch("src.update_or_create.update_response")
 def test_execute_update_posts_error_card_on_update_page_failure(
     mock_update_response, mock_get_store, mock_get_page,
-    mock_human_edits, mock_update_page, mock_get_kb_index
+    mock_update_page, mock_get_kb_index
 ):
     """update_page raises → error card posted, no exception propagated."""
     mock_get_page.return_value = {"version": {"number": 1}}
-    mock_human_edits.return_value = False
     mock_update_page.side_effect = RuntimeError("Confluence write failed")
 
     mock_store = MagicMock()
@@ -406,24 +409,22 @@ def test_execute_update_posts_error_card_on_update_page_failure(
     from src.update_or_create import execute_update
     execute_update("C1_1.0", _article(), "page-99", "C1", "proc-ts")
 
-    mock_update_response.assert_called_once()
-    payload = mock_update_response.call_args[0][2]
+    assert mock_update_response.call_count == 2  # ack + error card
+    payload = mock_update_response.call_args[0][2]  # last call = error
     assert "Failed" in str(payload)
 
 
 @patch("src.update_or_create._get_kb_index")
 @patch("src.update_or_create._post_protected_field_comments")
 @patch("src.update_or_create.update_page")
-@patch("src.update_or_create.has_human_edits_since")
 @patch("src.update_or_create.get_page")
 @patch("src.update_or_create.get_store")
 @patch("src.update_or_create.update_response")
 def test_execute_update_calls_comment_back_for_protected_fields(
     mock_update_response, mock_get_store, mock_get_page,
-    mock_human_edits, mock_update_page, mock_comment_back, mock_get_kb_index
+    mock_update_page, mock_comment_back, mock_get_kb_index
 ):
-    mock_get_page.return_value = {"version": {"number": 3}}
-    mock_human_edits.return_value = True
+    mock_get_page.return_value = {"version": {"number": 3}}  # 3 > last_indexed_version=2 → human_edited
     mock_update_page.return_value = "https://confluence.example.com/spaces/KB/pages/p99"
     mock_get_store.return_value = MagicMock()
 
@@ -450,16 +451,15 @@ def test_execute_update_calls_comment_back_for_protected_fields(
 @patch("src.update_or_create._get_kb_index")
 @patch("src.update_or_create._post_protected_field_comments")
 @patch("src.update_or_create.update_page")
-@patch("src.update_or_create.has_human_edits_since")
 @patch("src.update_or_create.get_page")
 @patch("src.update_or_create.get_store")
 @patch("src.update_or_create.update_response")
 def test_execute_update_no_comment_when_no_protected_fields(
     mock_update_response, mock_get_store, mock_get_page,
-    mock_human_edits, mock_update_page, mock_comment_back, mock_get_kb_index
+    mock_update_page, mock_comment_back, mock_get_kb_index
 ):
-    mock_get_page.return_value = {"version": {"number": 1}}
-    mock_human_edits.return_value = False  # no human edits → no protected fields
+    """No base → no protected fields; comment still posted with empty list (human_edited=True)."""
+    mock_get_page.return_value = {"version": {"number": 1}}  # 1 > 0 → human_edited=True
     mock_update_page.return_value = "https://confluence.example.com/spaces/KB/pages/p99"
     mock_get_store.return_value = MagicMock()
     mock_get_kb_index.return_value = MagicMock()

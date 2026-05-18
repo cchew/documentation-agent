@@ -65,8 +65,9 @@ def test_gate_false_preserves_create_only_behavior(
 @patch("src.pipeline.extract")
 @patch("src.pipeline.fetch_thread")
 def test_viable_article_creates_confluence_page_and_saves(
-    mock_fetch, mock_extract, mock_create, mock_update
+    mock_fetch, mock_extract, mock_create, mock_update, monkeypatch
 ):
+    monkeypatch.delenv("UPDATE_NOT_DUPLICATE", raising=False)
     mock_fetch.return_value = "thread text"
     mock_extract.return_value = _viable_article()
     mock_create.return_value = ("https://conf/x", "page-1")
@@ -84,8 +85,9 @@ def test_viable_article_creates_confluence_page_and_saves(
 @patch("src.pipeline.extract")
 @patch("src.pipeline.fetch_thread")
 def test_idempotency_skips_confluence_create_when_page_id_exists(
-    mock_fetch, mock_extract, mock_create, mock_update
+    mock_fetch, mock_extract, mock_create, mock_update, monkeypatch
 ):
+    monkeypatch.delenv("UPDATE_NOT_DUPLICATE", raising=False)
     mock_fetch.return_value = "thread text"
     mock_extract.return_value = _viable_article()
     mock_create.return_value = ("https://conf/x", "page-1")

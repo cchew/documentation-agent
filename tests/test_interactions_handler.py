@@ -1,4 +1,4 @@
-"""Tests for POST /slack/interactions endpoint."""
+"""Tests for POST /slack/actions endpoint."""
 import json
 import time
 from unittest.mock import MagicMock, patch
@@ -67,7 +67,7 @@ def _make_payload(action_id: str) -> dict:
 def _post_interaction(client, payload: dict, verify: bool = True):
     with patch("src.adapters.fastapi_app.verify_signature", return_value=True):
         return client.post(
-            "/slack/interactions",
+            "/slack/actions",
             data={"payload": json.dumps(payload)},
         )
 
@@ -77,11 +77,16 @@ def test_unknown_action_returns_200(client):
     assert resp.status_code == 200
 
 
-def test_expired_interaction_returns_already_actioned(client):
-    resp = _post_interaction(client, _make_payload("hitl_create:hitl_C1_1.0"))
+@patch("src.adapters.fastapi_app.update_response")
+def test_expired_interaction_returns_already_actioned(mock_update_response, client):
+    payload = _make_payload("hitl_create:hitl_C1_1.0")
+    payload["channel"] = {"id": "C1"}
+    payload["message"] = {"ts": "1.0"}
+    resp = _post_interaction(client, payload)
     assert resp.status_code == 200
-    body = resp.json()
-    assert "already been actioned" in str(body)
+    mock_update_response.assert_called_once()
+    posted = mock_update_response.call_args[0][2]
+    assert "already been actioned" in str(posted)
 
 
 @patch("src.adapters.fastapi_app.execute_create")
@@ -91,8 +96,7 @@ def test_create_action_dispatches_execute_create(mock_consume, mock_execute_crea
 
     resp = _post_interaction(client, _make_payload("hitl_create:hitl_C1_1.0"))
     assert resp.status_code == 200
-    body = resp.json()
-    assert "replace_original" in body
+    mock_execute_create.assert_called_once()
 
 
 @patch("src.adapters.fastapi_app.execute_update")
@@ -102,8 +106,7 @@ def test_update_action_dispatches_execute_update(mock_consume, mock_execute_upda
 
     resp = _post_interaction(client, _make_payload("hitl_update:hitl_C1_1.0:page-99"))
     assert resp.status_code == 200
-    body = resp.json()
-    assert "replace_original" in body
+    mock_execute_update.assert_called_once()
 
 
 @patch("src.adapters.fastapi_app.execute_cancel")
@@ -118,7 +121,7 @@ def test_cancel_action_dispatches_execute_cancel(mock_consume, mock_execute_canc
 def test_invalid_signature_returns_401(client):
     with patch("src.adapters.fastapi_app.verify_signature", return_value=False):
         resp = client.post(
-            "/slack/interactions",
+            "/slack/actions",
             data={"payload": json.dumps(_make_payload("hitl_create:x"))},
         )
     assert resp.status_code == 401

@@ -13,11 +13,12 @@ from src.block_kit import (
     build_kb_response,
     build_match_candidates_card,
     build_match_confirmation_card,
+    build_processing_ack,
 )
-from src.confluence_client import create_page, get_page, has_human_edits_since, post_page_comment, update_page
+from src.confluence_client import create_page, get_page, post_page_comment, update_page
 from src.doco_agent_core.kb_index import KBIndex, KBIndexEntry
 from src.doco_agent_core.matcher import build_embed_text, match
-from src.doco_agent_core.models import ProtectedField
+from src.doco_agent_core.models import MatchResult, ProtectedField
 from src.extraction.models import KBArticle
 from src.hitl_store import register as hitl_register
 from src.run_log import log_run
@@ -53,6 +54,16 @@ def run_update_or_create(
     result = match(article, channel_id, thread_ts, kb_index, space_key=space_key)
 
     if result.has_candidates:
+        # Refresh candidate titles from Confluence — index titles go stale after manual edits
+        refreshed = []
+        for c in result.candidates:
+            try:
+                page_data = get_page(c.page_id)
+                refreshed.append(c.model_copy(update={"title": page_data.get("title", c.title)}))
+            except Exception:
+                refreshed.append(c)
+        result = MatchResult(candidates=refreshed)
+
         interaction_id = f"hitl_{article_id}"
         card = build_match_confirmation_card(
             result.candidates, interaction_id, result.has_strong_match
@@ -95,6 +106,10 @@ def execute_create(
     space_key: str | None = None,
 ) -> None:
     """Create a new Confluence page and post the result card."""
+    try:
+        update_response(channel_id, response_ts, build_processing_ack())
+    except Exception:
+        logger.warning("Failed to post processing ack for create; continuing")
     if kb_index is None:
         kb_index = _get_kb_index()
     if space_key is None:
@@ -117,6 +132,12 @@ def execute_update(
     if space_key is None:
         space_key = _CONFLUENCE_SPACE_KEY or None
 
+    # Acknowledge immediately so the HITL card updates before the slow Confluence calls
+    try:
+        update_response(channel_id, response_ts, build_processing_ack())
+    except Exception:
+        logger.warning("Failed to post processing ack for update; continuing")
+
     # Fetch current page state
     try:
         page_data = get_page(target_page_id)
@@ -136,16 +157,21 @@ def execute_update(
         except Exception:
             logger.warning("Could not parse stored draft_json for %s; treating as no base", target_page_id)
 
-    # Detect human edits via Confluence version history
+    # Detect human edits by version number: any version beyond the last agent-indexed
+    # version is a human edit, regardless of author (avoids same-account email match failure).
     last_agent_version = stored_entry.last_indexed_version if stored_entry else 0
-    human_edited = False
-    try:
-        human_edited = has_human_edits_since(target_page_id, since_version=last_agent_version)
-    except Exception:
-        logger.warning("Could not check human edits for %s; assuming no edits", target_page_id)
+    human_edited = current_version > last_agent_version
 
-    # Three-way merge: only apply draft fields that haven't been human-edited
+    # Three-way merge: protect non-empty scalar fields when base exists (prevents
+    # both human-edit overwrites and LLM output drift on re-runs).
     merged, protected = _three_way_merge(base_article, article, human_edited)
+
+    # Preserve the live Confluence title when humans have edited the page.
+    # The merge keeps base.title, but base = last agent write — not the human's edit.
+    if human_edited:
+        current_title = page_data.get("title")
+        if current_title and current_title != merged.title:
+            merged = merged.model_copy(update={"title": current_title})
 
     # Write back to Confluence
     try:
@@ -160,7 +186,8 @@ def execute_update(
             logger.exception("run_log write failed; continuing")
         return
 
-    _post_protected_field_comments(target_page_id, protected)
+    if human_edited:
+        _post_protected_field_comments(target_page_id, protected)
 
     # Re-index with the new draft
     store = get_store()
@@ -202,12 +229,19 @@ def execute_cancel(
     user_id: str | None,
 ) -> None:
     """Notify the user that no article was published."""
+    try:
+        update_response(channel_id, response_ts, build_processing_ack())
+    except Exception:
+        logger.warning("Failed to post processing ack for cancel; continuing")
     from src.block_kit import build_error_response
-    update_response(
-        channel_id,
-        response_ts,
-        build_error_response(f"Cancelled — *{article.title}* was not published."),
-    )
+    try:
+        update_response(
+            channel_id,
+            response_ts,
+            build_error_response(f"Cancelled — *{article.title}* was not published."),
+        )
+    except Exception:
+        logger.exception("Failed to post cancel confirmation card")
     try:
         log_run(action="cancel", target_page_id=None, match_candidates=[], protected_fields=[], status="success")
     except Exception:
@@ -302,15 +336,15 @@ def _three_way_merge(
     """
     Three-way merge: base = last agent write, draft = new agent output.
 
-    If no human edits detected → clean overwrite with draft, no protected fields.
-    If human edits detected → protect scalar fields (keep base values), union list
-    fields, report which scalar fields the draft wanted to change.
-    Protected fields are surfaced as Confluence comments in _post_protected_field_comments.
+    If base is None → first write, clean overwrite.
+    If base exists → union list fields; protect non-empty scalar fields regardless of
+    whether the edits were human or agent-driven (prevents LLM output drift on re-runs).
+    Protected fields are surfaced as Confluence comments only when human_edited=True.
     """
-    if not human_edited or base is None:
+    if base is None:
         return draft, []
 
-    # Human edits exist: union list fields, protect scalar fields (keep base values)
+    # Base exists: union list fields, protect non-empty scalar fields
     merged_data = base.model_dump()
 
     # Union-merge list fields: add new draft items, never remove existing

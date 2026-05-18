@@ -22,7 +22,7 @@ Use this rubric exactly. Do not estimate — apply the rubric mechanically:
 | 0.8–1.0 | Clear thread: explicit resolution, root cause identified (incidents), named participants, >8 messages |
 | 0.6–0.79 | Partial: resolution present but root cause unclear, OR thread is short (<8 messages) |
 | 0.4–0.59 | Weak: implied resolution, significant ambiguity, mostly noise messages |
-| 0.0–0.39 | Not viable: no resolution, <5 messages, no actionable content |
+| 0.0–0.39 | Not viable: no resolution, <5 messages, no actionable content. A speculative self-resolution ("seems to have cleared up", "probably fixed itself") with no identified cause or action counts as **no resolution** for this band. |
 
 Set `extraction_viable` to **false** if `confidence_score < 0.4`. When not viable, still populate `title`, `summary`, `incident_type`, and `tags` as best you can, but set `extraction_viable: false` and explain why in `low_confidence_reason` (e.g. "Thread too short — 4 messages, no resolution found").
 

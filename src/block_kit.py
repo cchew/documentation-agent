@@ -174,6 +174,17 @@ def build_match_confirmation_card(
     return {"blocks": blocks}
 
 
+def build_processing_ack() -> dict:
+    return {
+        "blocks": [
+            {
+                "type": "section",
+                "text": {"type": "mrkdwn", "text": "⏳ *Processing your choice...*"},
+            }
+        ]
+    }
+
+
 def build_error_response(message: str) -> dict:
     return {
         "blocks": [

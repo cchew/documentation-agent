@@ -16,6 +16,7 @@ Converts Slack incident threads and Q&A chains into structured Confluence KB art
 
 | Version | Description |
 |---|---|
+| v0.3.0 | Cycle 1 — update-not-duplicate: KB index + semantic matcher, interactive HITL card (Update / Create new / Cancel), three-way merge with scalar-field protection, Confluence comment-back for protected fields, version-based human-edit detection, minimal JSONL run log, backfill CLI. Gated by `UPDATE_NOT_DUPLICATE=true`. |
 | v0.2.2 | AWS deployment: Rust API Lambda + Python worker Lambda + SQS + DynamoDB + CDK IaC |
 
 ---
