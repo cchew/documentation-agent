@@ -1,0 +1,13 @@
+flowchart LR
+    S["Slack"] --> AG["API Gateway"]
+    AG --> RL["Lambda<br/>(Rust)"]
+    RL --> SQ["SQS"]
+    SQ --> PL["Lambda<br/>(Python)"]
+    PL <--> CA["Claude API"]
+    PL --> OUT
+    subgraph OUT["Outputs"]
+        direction TB
+        CF["Confluence"]
+        DB["DynamoDB"]
+        SK["Slack reply"]
+    end
