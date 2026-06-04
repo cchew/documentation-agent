@@ -477,9 +477,7 @@ The Slack response closes the loop. The engineer who triggered it gets a link to
 
 ## AWS Console: API Gateway
 
-<div class="ph" style="height:360px;">
-  [SCREENSHOT: AWS Console. API Gateway HTTP API<br/>Highlight: POST /slack/actions route, invoke URL]
-</div>
+![h:360](screenshots/aws-api-gateway.png)
 
 <div class="note">One HTTP API. One route. The invoke URL goes directly into the Slack app configuration.</div>
 
@@ -487,9 +485,7 @@ The Slack response closes the loop. The engineer who triggered it gets a link to
 
 ## AWS Console: Rust Lambda
 
-<div class="ph" style="height:300px;">
-  [SCREENSHOT: AWS Console. doco-agent-api function<br/>Highlight: Runtime = provided.al2023, Architecture = arm64, Timeout = 5s]
-</div>
+![h:300](screenshots/aws-lambda-rust.png)
 
 **Why Rust here:** HMAC verification is CPU-bound and synchronous. Rust at 128MB cold-starts faster than Python at 512MB and completes the check before Slack's retry timer fires.
 
@@ -497,9 +493,7 @@ The Slack response closes the loop. The engineer who triggered it gets a link to
 
 ## AWS Console: SQS
 
-<div class="ph" style="height:300px;">
-  [SCREENSHOT: AWS Console. doco-agent-queue<br/>Highlight: message count during a live run, DLQ configured]
-</div>
+![h:200](screenshots/aws-sqs.png)
 
 **Why SQS here:** the verifier must respond in under 3 seconds; the worker can run up to 5 minutes. The queue decouples them cleanly without any custom retry logic.
 
@@ -507,9 +501,7 @@ The Slack response closes the loop. The engineer who triggered it gets a link to
 
 ## AWS Console: Python Lambda
 
-<div class="ph" style="height:280px;">
-  [SCREENSHOT: AWS Console. doco-agent-worker function<br/>Highlight: env vars showing SSM parameter names, not secret values]
-</div>
+![h:400](screenshots/aws-lambda-python.png)
 
 **Secrets in SSM Parameter Store.** Fetched at cold start, never stored in environment variables or code. The env var holds the parameter *name*, not the value.
 
@@ -517,9 +509,7 @@ The Slack response closes the loop. The engineer who triggered it gets a link to
 
 ## AWS Console: DynamoDB
 
-<div class="ph" style="height:300px;">
-  [SCREENSHOT: AWS Console. doco-agent-articles table<br/>Highlight: one real article record expanded, pay-per-request billing]
-</div>
+![h:400](screenshots/aws-dynamodb.png)
 
 **Why DynamoDB:** serverless, no schema migration, pay-per-request pricing is near-zero for demo workloads. Stores article metadata and every extraction run log.
 
@@ -633,13 +623,12 @@ The async pattern and the right-tool principle are the takeaways that transfer b
 
 ## Appendix A: Slack App Setup
 
-<div class="ph" style="height:200px;margin-bottom:16px;">
-  [SCREENSHOT: api.slack.com/apps. Create New App from scratch]
-</div>
+![h:300](screenshots/config-slack-oauth-scopes.png)
 
-**Required OAuth scopes:** `channels:history`, `chat:write`, `commands`
+See `README.md` for required OAuth scopes.
 
 Configure the message shortcut: Features → Shortcuts → Create a shortcut → On messages. 
+
 Set callback ID to `create_kb_article`.
 
 ---
@@ -649,14 +638,7 @@ Set callback ID to `create_kb_article`.
 
 ## Appendix B: Slack Webhook URL
 
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;height:300px;">
-  <div class="ph" style="height:100%;">
-    [SCREENSHOT: Event Subscriptions<br/>Request URL field. Paste ngrok or API Gateway URL here]
-  </div>
-  <div class="ph" style="height:100%;">
-    [SCREENSHOT: Interactivity and Shortcuts<br/>Request URL field. Same URL]
-  </div>
-</div>
+![h:400](screenshots/config-slack-webhook.png)
 
 <div class="note">Both fields take the same endpoint: localhost (ngrok URL + /slack/actions), AWS (API Gateway invoke URL + /slack/actions)</div>
 
@@ -667,14 +649,7 @@ Set callback ID to `create_kb_article`.
 
 ## Appendix C: Confluence Setup
 
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;height:280px;margin-bottom:16px;">
-  <div class="ph" style="height:100%;">
-    [SCREENSHOT: id.atlassian.com<br/>API token generation]
-  </div>
-  <div class="ph" style="height:100%;">
-    [SCREENSHOT: Confluence free-tier space<br/>KB parent page the agent writes under]
-  </div>
-</div>
+![h:300](screenshots/config-confluence-api-token.png)
 
 Set `CONFLUENCE_URL`, `CONFLUENCE_EMAIL`, `CONFLUENCE_API_TOKEN`, `CONFLUENCE_SPACE_KEY`, and `CONFLUENCE_PARENT_PAGE_ID` in `.env` (localhost) or SSM Parameter Store (AWS).
 
@@ -697,3 +672,36 @@ Set `CONFLUENCE_URL`, `CONFLUENCE_EMAIL`, `CONFLUENCE_API_TOKEN`, `CONFLUENCE_SP
 **Scalability**
 - Demo: DynamoDB + SQS already production-grade at this scale
 - Eval pipeline: schema validation today; LLM-as-judge for production regression
+
+---
+
+<!-- _class: appendix -->
+<!-- _paginate: false -->
+
+## Appendix E: Demo Backup (1/3) — Slack Shortcut
+
+![h:260](screenshots/demo-slack-app.png)
+
+<div class="note">User triggers the shortcut on the incident thread: ⚡ → "Create KB Article".</div>
+
+---
+
+<!-- _class: appendix -->
+<!-- _paginate: false -->
+
+## Appendix E: Demo Backup (2/3) — Acknowledgement
+
+![h:260](screenshots/demo-slack-generate.png)
+
+<div class="note">Sub-second ack posted back into the thread while the worker runs asynchronously.</div>
+
+---
+
+<!-- _class: appendix -->
+<!-- _paginate: false -->
+
+## Appendix E: Demo Backup (3/3) — Article Created
+
+![h:420](screenshots/demo-slack-success.png)
+
+<div class="note">Block Kit confirmation with article link, confidence score, and PII flags.</div>

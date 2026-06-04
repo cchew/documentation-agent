@@ -4,11 +4,17 @@ Converts Slack incident threads and Q&A chains into structured Confluence KB art
 
 ![Generated KB article](presentation/screenshots/kb-1.png)
 
-**Localhost flow:** Slack shortcut → ngrok → FastAPI → Claude API (structured extraction) → Confluence page + Slack Block Kit response
+### Localhost flow
 
-**AWS flow:** Slack shortcut → API Gateway → Rust Lambda (HMAC + SQS) → Python worker Lambda → Claude API → DynamoDB + Confluence + Slack response
+Slack shortcut → ngrok → FastAPI → Claude API (structured extraction) → Confluence page + Slack Block Kit response
 
-![Component flow](presentation/diagrams/component-flow.svg)
+![Localhost component flow](presentation/diagrams/component-flow.svg)
+
+### AWS flow
+
+Slack shortcut → API Gateway → Rust Lambda (HMAC + SQS) → Python worker Lambda → Claude API → DynamoDB + Confluence + Slack response
+
+![AWS component flow](presentation/diagrams/component-flow-aws.svg)
 
 ---
 
@@ -117,6 +123,21 @@ ngrok http 8000
 ```
 
 Copy the ngrok HTTPS URL and update the Slack shortcut Request URL to `https://<your-ngrok-domain>/slack/actions`.
+
+---
+
+## Deploying to AWS
+
+Full walkthrough in [DEPLOY.md](DEPLOY.md). Quick path:
+
+1. **Store secrets in SSM Parameter Store** under `/doco-agent/*` (Anthropic key, Slack tokens, Confluence creds) — see DEPLOY.md step 1 for the exact `aws ssm put-parameter` commands.
+2. **Run the deploy script** — `scripts/deploy.sh`. This checks SSM parameters exist, builds the Rust API Lambda, bootstraps CDK if needed, and runs `cdk deploy`.
+3. **Update the Slack shortcut Request URL** to the `SlackWebhookUrl` from the stack outputs.
+4. **Smoke test** the ⚡ shortcut on a thread.
+
+IAM policies for least-privilege bootstrap and steady-state deploy are in [infra/aws/cdk/](infra/aws/cdk/). CloudWatch alarms, X-Ray tracing, a $10/month budget alert, and a GitHub Actions deploy workflow are all wired up — see DEPLOY.md for details.
+
+Teardown: `scripts/teardown.sh` destroys the stack, deletes the retained DynamoDB table, and removes all SSM parameters.
 
 ---
 
@@ -236,12 +257,6 @@ pytest -m integration
     ├── screenshots/
     └── diagrams/
 ```
-
----
-
-## AWS deployment
-
-See [DEPLOY.md](DEPLOY.md) for the full walkthrough including CDK bootstrap, SSM secret setup, Rust Lambda build, and deploy steps.
 
 ---
 

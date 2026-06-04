@@ -15,6 +15,20 @@ Slack shortcut
 
 Secrets live in SSM Parameter Store and are resolved at Lambda cold-start. No secrets in environment variables or source code.
 
+> **AWS does not support `UPDATE_NOT_DUPLICATE=true`.** The v0.3.0 duplicate-detection path uses `sentence-transformers`, which (via torch) far exceeds Lambda's 250MB unzipped limit. The worker is hard-wired to `UPDATE_NOT_DUPLICATE=false`, and the relevant import is deferred so the worker bundle stays slim. Use the localhost FastAPI flow for v0.3.0 demos, or switch the worker to a container-image Lambda (`lambda_.DockerImageFunction`) if the duplicate path is needed on AWS.
+
+## Quick path
+
+Once SSM secrets are in place (Step 1 below) and IAM permissions are sorted (Step 0), the rest of the deploy is wrapped in a script:
+
+```bash
+scripts/deploy.sh
+```
+
+This checks all `/doco-agent/*` SSM parameters exist, builds the Rust API Lambda, bootstraps CDK if it hasn't been already, and runs `cdk deploy --require-approval never`. The remaining steps (Slack URL update, smoke test) are still manual.
+
+The step-by-step below documents what the script does and is the reference for anything non-standard.
+
 ## Prerequisites
 
 - AWS account with CLI configured (`aws configure` or assume a role)

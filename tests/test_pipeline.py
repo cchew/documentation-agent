@@ -21,7 +21,7 @@ def reset_store():
     get_store.cache_clear()
 
 
-@patch("src.pipeline.run_update_or_create")
+@patch("src.update_or_create.run_update_or_create")
 @patch("src.pipeline.update_response")
 @patch("src.pipeline.create_page")
 @patch("src.pipeline.extract")

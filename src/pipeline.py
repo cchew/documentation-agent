@@ -7,7 +7,6 @@ from src.confluence_client import create_page
 from src.extraction.extractor import extract
 from src.slack_client import fetch_thread, update_response
 from src.storage import get_store
-from src.update_or_create import run_update_or_create
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +35,7 @@ def run_pipeline(
 
         if article.extraction_viable:
             if os.environ.get("UPDATE_NOT_DUPLICATE", "false").lower() == "true":
+                from src.update_or_create import run_update_or_create
                 run_update_or_create(
                     article_id, article, channel_id, thread_ts,
                     processing_ts=processing_ts, user_id=user_id,
@@ -56,7 +56,7 @@ def run_pipeline(
         raise
     except RuntimeError as e:
         logger.error("Pipeline runtime error: %s", e)
-        payload = build_error_response("Could not fetch or post to Slack. Check bot permissions.")
+        payload = build_error_response(str(e))
     except ValueError as e:
         logger.error("Pipeline extraction error: %s", e)
         payload = build_error_response("Extraction failed — the thread may be in an unexpected format.")
