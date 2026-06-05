@@ -22,7 +22,7 @@ Slack shortcut → API Gateway → Rust Lambda (HMAC + SQS) → Python worker La
 
 | Version | Description |
 |---|---|
-| v0.3.0 | Detect existing KB duplicates and preserve user edits. Gated by `UPDATE_NOT_DUPLICATE=true`. |
+| v0.3.1 | Detect existing KB duplicates and preserve user edits (localhost only). Gated by `UPDATE_NOT_DUPLICATE=true`. |
 | v0.2.2 | AWS deployment: Rust API Lambda + Python worker Lambda + SQS + DynamoDB + CDK IaC |
 | v0.1.0 | Localhost deployment: FastAPI + ngrok + Claude API (tool use) + Confluence REST API |
 
