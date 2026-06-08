@@ -245,11 +245,11 @@ Ching Chew · AWS Canberra User Group · June 2026
 <!-- note:
 Pre-show: Confluence open with seeded article, Slack open with incident thread, AWS stack running.
 
-Ask audience: study/just finished, working or taking break/other.
+Ask audience: study/just finished, "would you consider yourself technical" and if you are new to AWS (~3 months or less).
 
-Presentation for beginners and experts, introduces the AWS components used and you will get the commands to run this tonight on localhost or AWS.
+Presentation for beginners and experts. I will show you a demo of how the solution works, introduce the AWS components used and the commands to run this tonight on localhost or AWS.
 
-Scan the QR if you want to following along or start running.
+Scan the QR if you want to follow along or start running.
 -->
 
 ---
@@ -269,7 +269,7 @@ The constant across every organisation I have worked in:
 And yet.
 
 <!-- note:
-Not a CV recitation. The credibility point is the government context. If this problem exists in agencies with compliance obligations, it exists everywhere.
+Knowledge creation, capture and use is something that I am passionate about.
 -->
 
 ---
@@ -292,6 +292,8 @@ Personal exeperience: current role, Tech Lead resigned 2 months in. Thankfully c
 Can you think of your own situation?
 
 This presentation focuses on technical role, but can also happen in policy, HR, operations, manufacturing, academic etc.
+
+IDC 2026: $31b loss in Fortune 500. Another study claims knowledge worker ~20% time spent searching for information.
 -->
 
 ---
@@ -359,24 +361,13 @@ Five AWS components, one pipeline:
 
 ![w:1000](diagrams/component-flow-aws.svg)
 
-Each component does one job. Together they handle any Slack thread, any time.
+Each component does one job. Together they handle KB creation from Slack thread.
 
 <!-- note:
 Walk the diagram left to right. Each component exists because of a specific constraint.
 Slack: 3-second timeout forces async. SQS: decouples acknowledgement from extraction. Rust: HMAC is CPU-bound. Python Lambda: slow AI work happens here, away from the timer. DynamoDB: audit trail for every run.
--->
 
-<!-- note:
-For execs: "connects tools you already have."
-For devs: Slack demands 200 in 3 seconds. Extraction takes 5-10s. FastAPI background tasks solve this.
-Teams (ADO Wiki/SharePoint): same architecture, different SDKs. 5-second timeout.
-
-HTTPS
-Slack App - Message shortcut triggers a webhook
-FastAPI - Acknowledges in <1s, runs extraction async
-Claude API - Extracts structured KB article via tool use
-Confluence API - Creates formatted KB page
-Slack API - Posts Block Kit result back to thread
+Restaurant analogy of async request-reply (ACK): front of house takes order (Rust Lambda), orders are added to check rail/ticket holder (SQS), food gets prepared (Lambda/Python).
 -->
 
 ---
@@ -409,9 +400,9 @@ The front door.
 <div class="def"><strong>Rust Lambda</strong>: a Lambda function written in Rust; used here for fast HMAC signature verification</div>
 <div class="def"><strong>HMAC</strong>: a cryptographic signature check; verifies the request genuinely came from Slack</div>
 
-Slack demands a 200 response within 3 seconds. 
+Slack demands a HTTP status code `200 OK` within 3 seconds. 
 
-Rust completes verification before other languages (e.g. Python) completes cold startup.
+Rust completes verification before other languages (e.g. Python) complete cold startup.
 
 **Pipeline:** `Slack ⚡` → `API Gateway` → `Rust Lambda` → ...
 
@@ -430,7 +421,7 @@ The queue.
 <div class="def"><strong>SQS (Simple Queue Service)</strong>: AWS's managed message queue; decouples webhook receiver from extraction worker</div>
 
 - Rust Lambda acknowledges Slack in &lt;1s, enqueues the job
-- Extraction can take 10-15 seconds (longer with v0.3 KB updates). No pressure.
+- Extraction can take 10-15 seconds (longer with v0.3 KB updates)
 - If the worker fails, the message retries automatically (DLQ after 3 attempts)
 
 **Pipeline:** `Slack ⚡` → `API Gateway` → `Rust Lambda` → `SQS` → ...
@@ -453,6 +444,11 @@ The worker pulls the job from SQS, sends the thread text to Claude API, and rece
 
 **Pipeline:** `Slack ⚡` → `API Gateway` → `Rust Lambda` → `SQS` → `Python Lambda + Claude API` → ...
 
+
+<!-- note:
+Schema good for consistency so that LLM doesn't reinvent KB format/structure each time it does the extraction.
+-->
+
 ---
 
 ## Step 5: Outputs
@@ -470,7 +466,9 @@ The destinations.
 `Slack ⚡` → `API Gateway` → `Rust Lambda` → `SQS` → `Python Lambda + Claude API` → `DynamoDB + Confluence + Slack`
 
 <!-- note:
-The Slack response closes the loop. The engineer who triggered it gets a link to the article without leaving their thread.
+The Slack response closes the loop. The user who triggered it gets a link to the article without leaving their thread.
+
+Let's look at the AWS Console for each component so that you know what to look for when you deploy the solution.
 -->
 
 ---
@@ -489,6 +487,10 @@ The Slack response closes the loop. The engineer who triggered it gets a link to
 
 **Why Rust here:** HMAC verification is CPU-bound and synchronous. Rust at 128MB cold-starts faster than Python at 512MB and completes the check before Slack's retry timer fires.
 
+<!-- note:
+Rust Lambda built as Docker image so you won't be able to see the .rs code on AWS Console.
+-->
+
 ---
 
 ## AWS Console: SQS
@@ -496,6 +498,10 @@ The Slack response closes the loop. The engineer who triggered it gets a link to
 ![h:200](screenshots/aws-sqs.png)
 
 **Why SQS here:** the verifier must respond in under 3 seconds; the worker can run up to 5 minutes. The queue decouples them cleanly without any custom retry logic.
+
+<!-- note:
+DLQ is dead letter queue.
+-->
 
 ---
 
@@ -505,6 +511,10 @@ The Slack response closes the loop. The engineer who triggered it gets a link to
 
 **Secrets in SSM Parameter Store.** Fetched at cold start, never stored in environment variables or code. The env var holds the parameter *name*, not the value.
 
+<!-- note:
+If you update parameter value, need to reload Lambda.
+-->
+
 ---
 
 ## AWS Console: DynamoDB
@@ -512,6 +522,10 @@ The Slack response closes the loop. The engineer who triggered it gets a link to
 ![h:400](screenshots/aws-dynamodb.png)
 
 **Why DynamoDB:** serverless, no schema migration, pay-per-request pricing is near-zero for demo workloads. Stores article metadata and every extraction run log.
+
+<!-- note:
+LLM extracts and structures Slack thread as JSON, stored without need for further translation.
+-->
 
 ---
 
@@ -568,7 +582,7 @@ The architecture does not change. Only the schema and the prompt.
 
 ## Get Started Tonight
 
-No AWS account required for the first run.
+No AWS account required for the first run (there is AWS Free Tier if you want to deploy to AWS).
 
 <style scoped>
 pre { font-size: 18px; }
@@ -587,10 +601,12 @@ uvicorn src.adapters.fastapi_app:app --reload --port 8000
 - Confluence: free tier at atlassian.com (personal space)
 - Slack: any workspace you can install apps into
 
-Full AWS stack: `DEPLOY.md`. CDK deploy takes about 10 minutes.
+Full AWS stack: follow `README.md` (details in `DEPLOY.md`). CDK deploy takes about 3 minutes.
 
 <!-- note:
-The localhost path removes every barrier. No AWS account, no CDK, just clone and run.
+Only verified on MacOS. Ping me if you encounter issues on Windows.
+
+Ping me if you want some Anthropic credits.
 -->
 
 ---
