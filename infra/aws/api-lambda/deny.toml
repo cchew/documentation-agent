@@ -3,10 +3,16 @@ yanked = "deny"
 # rustls-webpki 0.101.x CVEs — pulled transitively by hyper-rustls/rustls 0.21.x.
 # Not reachable in Lambda (no cert verification in the request path we own).
 # Track upstream fix: bump rustls to 0.22+ when aws-sdk deps allow it.
+#
+# RUSTSEC-2026-0258 (h2 0.3.27 leg) — aws-smithy-runtime's default feature set
+# still pulls the legacy hyper-0.14/h2-0.3 connector for backwards compat; the
+# active client path uses hyper-1/h2-0.4 (already patched via cargo update).
+# No fixed 0.3.x release exists upstream. Not reachable in our request path.
 ignore = [
     { id = "RUSTSEC-2026-0098" },
     { id = "RUSTSEC-2026-0099" },
     { id = "RUSTSEC-2026-0104" },
+    { id = "RUSTSEC-2026-0258" },
 ]
 
 [licenses]
