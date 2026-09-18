@@ -1,5 +1,7 @@
 # Documentation Agent
 
+_Blog post: [Building a Documentation Agent with Slack, Claude, and Confluence](https://www.herdmentality.xyz/blog/documentation-agent)_
+
 Converts Slack incident threads and Q&A chains into structured Confluence KB articles via a one-click Slack shortcut.
 
 ![Generated KB article](presentation/screenshots/kb-1.png)
